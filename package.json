@@ -2,11 +2,35 @@
   "name": "codepath-extension",
   "displayName": "CodePath",
   "description": "Track and visualize code execution paths with interactive node-based graphs",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "publisher": "nita121388",
+  "author": {
+    "name": "Nita"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nita121388/vscode-codepath.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nita121388/vscode-codepath/issues"
+  },
+  "homepage": "https://github.com/Nita121388/vscode-codepath#readme",
+  "keywords": [
+    "code-path",
+    "execution-path",
+    "code-tracking",
+    "visualization",
+    "mermaid",
+    "code-flow",
+    "debugging",
+    "code-analysis"
+  ],
   "engines": {
     "vscode": "^1.74.0"
   },
   "categories": [
+    "Visualization",
     "Other"
   ],
   "activationEvents": [
