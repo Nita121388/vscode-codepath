@@ -14,7 +14,7 @@
 
 ## English
 
-CodePath is a powerful VS Code extension that helps developers visualize and track code execution paths through interactive node-based graphs. Create, manage, and navigate through your code flow with ease using both text and visual diagram representations.
+CodePath is a VS Code extension that helps developers visualize and track code execution paths through interactive node-based graphs. Create, manage, and navigate through your code flow using both text and visual diagram representations.
 
 ### 🚀 Quick Start
 
@@ -59,7 +59,7 @@ CodePath is a powerful VS Code extension that helps developers visualize and tra
 
 ## 中文
 
-CodePath 是一个强大的 VS Code 扩展，帮助开发者通过交互式节点图表可视化和追踪代码执行路径。轻松创建、管理和导航代码流程，支持文本和可视化图表两种展示方式。
+CodePath 是一个 VS Code 扩展，帮助开发者通过交互式节点图表可视化和追踪代码执行路径。支持创建、管理和导航代码流程，提供文本和可视化图表两种展示方式。
 
 ### 🚀 快速开始
 

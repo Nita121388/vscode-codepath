@@ -1,7 +1,7 @@
 {
   "name": "codepath-extension",
   "displayName": "CodePath",
-  "description": "Visualize and track code execution paths with interactive node-based graphs",
+  "description": "Track and visualize code execution paths with interactive node-based graphs",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.74.0"
