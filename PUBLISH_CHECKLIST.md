@@ -6,7 +6,7 @@
 - [ ] 已创建 Microsoft 账号
 - [ ] 已创建 VS Code Marketplace 发布者账号
 - [ ] 已获取 Personal Access Token (PAT)
-- [ ] 已记录 Publisher ID: `nita121388`（或你实际创建的ID）
+- [x] 已记录 Publisher ID: `Nita`
 
 ### 2. 文件准备
 - [x] LICENSE 文件已创建
@@ -54,7 +54,7 @@ vsce package
 ### 步骤 4: 登录发布者账号
 
 ```bash
-vsce login nita121388
+vsce login Nita
 ```
 
 系统会提示输入 Personal Access Token (PAT)
@@ -140,9 +140,9 @@ vsce publish major
 ## ⚠️ 注意事项
 
 ### Publisher ID 说明
-- 当前 package.json 中设置的是 `nita121388`
-- 如果你创建的 Publisher ID 不同，需要修改 package.json 中的 `publisher` 字段
+- 当前 package.json 中设置的是 `Nita`
 - Publisher ID 必须与你在 Marketplace 创建的完全一致
+- 已确认你的 Marketplace Publisher ID 是 `Nita` ✅
 
 ### 图标说明
 - 当前 package.json 中没有配置图标
@@ -164,19 +164,19 @@ vsce publish major
 **错误 1**: `ERROR  Missing publisher name`
 ```bash
 # 解决：确保 package.json 中有 publisher 字段
-"publisher": "nita121388"
+"publisher": "Nita"
 ```
 
 **错误 2**: `ERROR  Invalid publisher name`
 ```bash
-# 解决：Publisher ID 只能包含小写字母、数字和连字符
-# 检查你在 Marketplace 创建的 Publisher ID
+# 解决：Publisher ID 必须与 Marketplace 中创建的完全一致
+# 当前使用的是: Nita
 ```
 
 **错误 3**: `ERROR  Authentication failed`
 ```bash
 # 解决：重新登录
-vsce login nita121388
+vsce login Nita
 # 输入正确的 PAT
 ```
 
