@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Wormhole",
   "description": "Track and visualize code execution paths with interactive node-based graphs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
