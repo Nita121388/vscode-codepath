@@ -1,0 +1,234 @@
+{
+  "name": "codepath-extension",
+  "displayName": "CodePath",
+  "description": "Visualize and track code execution paths with interactive node-based graphs",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codepath.createNode",
+        "title": "New Node",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.createChildNode",
+        "title": "New Child Node",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.createParentNode",
+        "title": "New Parent Node",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.switchCurrentNode",
+        "title": "Switch Current Node",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.deleteCurrentNode",
+        "title": "Delete Current Node",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.deleteCurrentNodeWithChildren",
+        "title": "Delete Current Node and Children",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.openPanel",
+        "title": "Open CodePath Panel",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.refreshPreview",
+        "title": "Refresh Preview",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.createGraph",
+        "title": "Create New CodePath",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.switchGraph",
+        "title": "Switch CodePath",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.exportGraph",
+        "title": "Export CodePath",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.importGraph",
+        "title": "Import CodePath",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.deleteGraph",
+        "title": "Delete CodePath",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.togglePreviewFormat",
+        "title": "Toggle Preview Format",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.validateNodeLocations",
+        "title": "Validate Node Locations",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.relocateNode",
+        "title": "Relocate Node",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.debugGraphState",
+        "title": "Debug Graph State",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.previewGraphFile",
+        "title": "预览 CodePath",
+        "category": "CodePath"
+      },
+      {
+        "command": "codepath.shareGraphFile",
+        "title": "分享 CodePath",
+        "category": "CodePath"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "codepath.previewGraphFile",
+          "when": "resourcePath =~ /\\.codepath.*\\.json$/",
+          "group": "codepath@1"
+        },
+        {
+          "command": "codepath.shareGraphFile",
+          "when": "resourcePath =~ /\\.codepath.*\\.json$/",
+          "group": "codepath@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codepath.createNode",
+          "when": "editorHasSelection",
+          "group": "codepath"
+        },
+        {
+          "command": "codepath.createChildNode",
+          "when": "codepath.hasCurrentNode",
+          "group": "codepath"
+        },
+        {
+          "command": "codepath.createParentNode",
+          "when": "codepath.hasCurrentNode",
+          "group": "codepath"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "codepath.openPanel",
+        "key": "ctrl+shift+c"
+      },
+      {
+        "command": "codepath.createNode",
+        "key": "ctrl+alt+n"
+      },
+      {
+        "command": "codepath.createChildNode",
+        "key": "ctrl+alt+c"
+      },
+      {
+        "command": "codepath.createParentNode",
+        "key": "ctrl+alt+p"
+      },
+      {
+        "command": "codepath.refreshPreview",
+        "key": "ctrl+shift+r"
+      },
+      {
+        "command": "codepath.switchCurrentNode",
+        "key": "ctrl+alt+s"
+      },
+      {
+        "command": "codepath.switchGraph",
+        "key": "ctrl+shift+g"
+      },
+      {
+        "command": "codepath.togglePreviewFormat",
+        "key": "ctrl+shift+t"
+      }
+    ],
+    "configuration": {
+      "title": "CodePath",
+      "properties": {
+        "codepath.defaultView": {
+          "type": "string",
+          "enum": [
+            "text",
+            "mermaid"
+          ],
+          "default": "text",
+          "description": "Default view type for graph preview"
+        },
+        "codepath.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable auto-save for graph changes"
+        },
+        "codepath.autoLoadLastGraph": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-load the last used graph on startup"
+        },
+        "codepath.previewRefreshInterval": {
+          "type": "number",
+          "default": 1000,
+          "description": "Preview refresh interval in milliseconds"
+        },
+        "codepath.maxNodesPerGraph": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum nodes per graph"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vitest/ui": "^3.2.4",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4",
+    "vitest": "^3.2.4"
+  }
+}
