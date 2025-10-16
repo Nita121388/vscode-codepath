@@ -495,9 +495,18 @@ export class WebviewManager implements IWebviewManager {
     /**
      * Navigates to a specific file and line number with intelligent fallback
      */
-    private async navigateToNode(filePath: string, lineNumber: number, codeSnippet?: string): Promise<void> {
+    private async navigateToNode(
+        filePath: string,
+        lineNumber: number,
+        codeSnippet?: string,
+        options?: { preserveCurrentNode?: boolean }
+    ): Promise<void> {
         try {
             console.log(`[WebviewManager] navigateToNode called: ${filePath}:${lineNumber}`);
+            const preserveCurrent = options?.preserveCurrentNode ?? false;
+            if (preserveCurrent) {
+                console.log('[WebviewManager] preserveCurrentNode flag detected, will navigate without switching current node');
+            }
             
             // Resolve the file path first
             const resolvedPath = await this.resolveFilePath(filePath);
@@ -505,6 +514,20 @@ export class WebviewManager implements IWebviewManager {
                 throw new Error(`File not found: ${filePath}`);
             }
             console.log(`[WebviewManager] Resolved path: ${resolvedPath}`);
+
+            // 检查是否为目录，目录无法直接打开文件
+            try {
+                const uri = vscode.Uri.file(resolvedPath);
+                const stat = await vscode.workspace.fs.stat(uri);
+                if ((stat.type & vscode.FileType.Directory) !== 0) {
+                    console.log('[WebviewManager] Target is directory, reveal in explorer instead of opening');
+                    await vscode.commands.executeCommand('revealInExplorer', uri);
+                    vscode.window.showInformationMessage(`已在资源管理器中定位目录：${resolvedPath}`);
+                    return;
+                }
+            } catch (error) {
+                console.warn('[WebviewManager] Failed to stat resolved path:', error);
+            }
 
             // Try to get the actual node if callback is available
             let actualNode = null;
@@ -532,10 +555,12 @@ export class WebviewManager implements IWebviewManager {
             console.log(`[WebviewManager] Navigation result: success=${result.success}, confidence=${result.confidence}`);
 
             if (result.success) {
-                // If we found the actual node, switch to it as the current node
-                if (actualNode && actualNode.id !== 'temp' && this.onNodeSwitchCallback) {
+                // If we found the actual node, switch to it as the current node (unless preserving current selection)
+                if (!preserveCurrent && actualNode && actualNode.id !== 'temp' && this.onNodeSwitchCallback) {
                     console.log(`[WebviewManager] Calling onNodeSwitchCallback for node: ${actualNode.id}`);
                     await this.onNodeSwitchCallback(actualNode.id);
+                } else if (preserveCurrent) {
+                    console.log('[WebviewManager] Skipping node switch due to preserveCurrentNode flag');
                 } else {
                     console.log(`[WebviewManager] Not calling onNodeSwitchCallback: actualNode=${actualNode ? actualNode.id : 'null'}, hasCallback=${!!this.onNodeSwitchCallback}`);
                 }
@@ -687,12 +712,17 @@ export class WebviewManager implements IWebviewManager {
                         // No need to update again
                         break;
                     case 'navigateToNode':
-                        await this.navigateToNode(message.filePath, message.lineNumber, message.codeSnippet);
+                        await this.navigateToNode(message.filePath, message.lineNumber, message.codeSnippet, {
+                            preserveCurrentNode: message.preserveCurrentNode
+                        });
                         break;
                     case 'deleteCurrentNode':
                         if (this.onDeleteCurrentNodeCallback) {
                             await this.onDeleteCurrentNodeCallback();
                         }
+                        break;
+                    case 'showContextMenu':
+                        await this.showPreviewContextMenu(message.nodeId, message.x, message.y);
                         break;
                     case 'deleteCurrentNodeWithChildren':
                         if (this.onDeleteCurrentNodeWithChildrenCallback) {
@@ -712,6 +742,216 @@ export class WebviewManager implements IWebviewManager {
             undefined,
             this.context.subscriptions
         );
+    }
+
+    /**
+     * Shows custom context menu for preview interface
+     * Provides node-specific operations based on current context
+     */
+    private async showPreviewContextMenu(nodeId: string | null, x: number, y: number): Promise<void> {
+        try {
+            // Try to find the actual node from the nodeId (which might be filepath:lineNumber)
+            const actualNode = this.findNodeByIdentifier(nodeId);
+            const hasValidNode = actualNode !== null;
+
+            // Build menu items based on context
+            const items: vscode.QuickPickItem[] = [
+                { 
+                    label: '🔄 刷新', 
+                    description: 'Refresh preview content',
+                    detail: 'Reload and validate all node locations'
+                },
+                { 
+                    label: '📤 导出', 
+                    description: 'Export graph',
+                    detail: 'Export current graph to file'
+                }
+            ];
+
+            // Add node-specific operations if a valid node is found
+            if (hasValidNode && this.isNodeOperationAvailable()) {
+                items.push(
+                    { 
+                        label: '📋 复制', 
+                        description: 'Copy node and children',
+                        detail: 'Copy the selected node and all its children to clipboard'
+                    },
+                    { 
+                        label: '📄 粘贴', 
+                        description: 'Paste node',
+                        detail: 'Paste node from clipboard as child of current node'
+                    },
+                    { 
+                        label: '✂️ 剪切', 
+                        description: 'Cut node and children',
+                        detail: 'Move the selected node and all its children to clipboard'
+                    },
+                    { 
+                        label: '⬆️ 上移', 
+                        description: 'Move node up',
+                        detail: 'Move node up in the sibling order'
+                    },
+                    { 
+                        label: '⬇️ 下移', 
+                        description: 'Move node down',
+                        detail: 'Move node down in the sibling order'
+                    }
+                );
+            } else if (await this.hasClipboardData()) {
+                // Show paste option even without node selection if clipboard has data
+                items.push({ 
+                    label: '📄 粘贴', 
+                    description: 'Paste node',
+                    detail: 'Paste node from clipboard as new root node'
+                });
+            }
+
+            // Show the quick pick menu
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: hasValidNode ? 
+                    `选择操作 (Node: ${actualNode?.name || 'Unknown'})` : 
+                    '选择操作 (Select Action)',
+                matchOnDescription: true,
+                matchOnDetail: true
+            });
+
+            if (selected) {
+                await this.executePreviewAction(selected.label, actualNode?.id || null);
+            }
+        } catch (error) {
+            console.error('[WebviewManager] Error showing context menu:', error);
+            vscode.window.showErrorMessage(`Failed to show context menu: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Executes the selected preview action
+     */
+    private async executePreviewAction(action: string, nodeId: string | null): Promise<void> {
+        try {
+            // Extract the action type from the label (remove emoji and trim)
+            const actionType = action.replace(/^[^\w\s]+\s*/, '').trim();
+
+            switch (actionType) {
+                case '刷新':
+                    await this.refreshPreview();
+                    break;
+                case '导出':
+                    if (this.onExportGraphCallback) {
+                        await this.onExportGraphCallback();
+                    } else {
+                        await vscode.commands.executeCommand('codepath.exportGraph');
+                    }
+                    break;
+                case '复制':
+                    if (nodeId) {
+                        // Set the node as current before copying
+                        await this.setCurrentNodeForOperation(nodeId);
+                        await vscode.commands.executeCommand('codepath.copyNode');
+                    }
+                    break;
+                case '粘贴':
+                    if (nodeId) {
+                        // Set the node as current before pasting (paste as child)
+                        await this.setCurrentNodeForOperation(nodeId);
+                    }
+                    await vscode.commands.executeCommand('codepath.pasteNode');
+                    break;
+                case '剪切':
+                    if (nodeId) {
+                        // Set the node as current before cutting
+                        await this.setCurrentNodeForOperation(nodeId);
+                        await vscode.commands.executeCommand('codepath.cutNode');
+                    }
+                    break;
+                case '上移':
+                    if (nodeId) {
+                        // Set the node as current before moving
+                        await this.setCurrentNodeForOperation(nodeId);
+                        await vscode.commands.executeCommand('codepath.moveNodeUp');
+                    }
+                    break;
+                case '下移':
+                    if (nodeId) {
+                        // Set the node as current before moving
+                        await this.setCurrentNodeForOperation(nodeId);
+                        await vscode.commands.executeCommand('codepath.moveNodeDown');
+                    }
+                    break;
+                default:
+                    console.warn(`[WebviewManager] Unknown action: ${actionType}`);
+                    vscode.window.showWarningMessage(`Unknown action: ${actionType}`);
+            }
+        } catch (error) {
+            console.error(`[WebviewManager] Error executing action ${action}:`, error);
+            vscode.window.showErrorMessage(`Failed to execute ${action}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Sets the specified node as current for operations
+     */
+    private async setCurrentNodeForOperation(nodeId: string): Promise<void> {
+        if (this.onNodeSwitchCallback) {
+            await this.onNodeSwitchCallback(nodeId);
+        }
+    }
+
+    /**
+     * Checks if node operations are available (current graph exists)
+     */
+    private isNodeOperationAvailable(): boolean {
+        if (!this.getCurrentGraphCallback) {
+            return false;
+        }
+        
+        const graph = this.getCurrentGraphCallback();
+        return graph && graph.nodes && graph.nodes.size > 0;
+    }
+
+    /**
+     * Finds a node by identifier (could be actual nodeId or filepath:lineNumber)
+     */
+    private findNodeByIdentifier(identifier: string | null): any | null {
+        if (!identifier || !this.getCurrentGraphCallback || !this.getNodeByLocationCallback) {
+            return null;
+        }
+
+        const graph = this.getCurrentGraphCallback();
+        if (!graph || !graph.nodes) {
+            return null;
+        }
+
+        // First try to find by actual node ID
+        if (graph.nodes.has(identifier)) {
+            return graph.nodes.get(identifier);
+        }
+
+        // If not found, try to parse as filepath:lineNumber and find matching node
+        const match = identifier.match(/^(.+):(\d+)$/);
+        if (match) {
+            const [, filePath, lineNumber] = match;
+            const lineNum = parseInt(lineNumber, 10);
+            
+            // Use the callback to find node by location
+            return this.getNodeByLocationCallback(filePath, lineNum);
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks if clipboard has data for paste operations
+     */
+    private async hasClipboardData(): Promise<boolean> {
+        try {
+            // Check VS Code context for clipboard state
+            const hasClipboard = await vscode.commands.executeCommand('getContext', 'codepath.hasClipboardNode');
+            return Boolean(hasClipboard);
+        } catch (error) {
+            console.warn('[WebviewManager] Failed to check clipboard state:', error);
+            return false;
+        }
     }
 
     /**
@@ -845,6 +1085,14 @@ export class WebviewManager implements IWebviewManager {
             flex: 1;
             overflow: auto;
             padding: 16px;
+        }
+
+        .preview-footer {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            padding: 6px 16px 12px;
+            border-top: 1px solid var(--vscode-panel-border);
+            font-style: italic;
         }
 
         .preview-text {
@@ -1008,6 +1256,7 @@ export class WebviewManager implements IWebviewManager {
     <div class="content" id="content">
         ${this.renderContent()}
     </div>
+    <div class="preview-footer">💡 Tip：按住 Ctrl 单击节点可在不切换当前节点的情况下跳转到代码位置。</div>
 
     <div class="edit-overlay" id="editOverlay"></div>
     <div class="edit-panel" id="editPanel">
@@ -1114,6 +1363,46 @@ export class WebviewManager implements IWebviewManager {
             document.getElementById('editPanel').classList.remove('visible');
         }
         
+        // Add context menu handler for custom preview menu
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            // Get clicked element and find the closest node
+            const clickedElement = e.target;
+            let nodeElement = null;
+            let nodeId = null;
+            
+            // Look for node-related elements (links with data-filepath or elements with data-node-id)
+            if (clickedElement && clickedElement.closest) {
+                // First try to find a node link
+                const nodeLink = clickedElement.closest('a.node-link');
+                if (nodeLink) {
+                    nodeElement = nodeLink;
+                    // For node links, we can derive a nodeId from the filepath and line
+                    const filePath = nodeLink.getAttribute('data-filepath');
+                    const lineNumber = nodeLink.getAttribute('data-linenumber');
+                    if (filePath && lineNumber) {
+                        // Create a pseudo nodeId for context menu operations
+                        nodeId = \`\${filePath}:\${lineNumber}\`;
+                    }
+                } else {
+                    // Try to find any element with data-node-id attribute
+                    nodeElement = clickedElement.closest('[data-node-id]');
+                    if (nodeElement) {
+                        nodeId = nodeElement.getAttribute('data-node-id');
+                    }
+                }
+            }
+            
+            // Send message to extension to show context menu
+            vscode.postMessage({
+                command: 'showContextMenu',
+                nodeId: nodeId,
+                x: e.clientX,
+                y: e.clientY
+            });
+        });
+        
         // Add click handler for node navigation
         document.addEventListener('click', (e) => {
             const link = e.target;
@@ -1121,12 +1410,14 @@ export class WebviewManager implements IWebviewManager {
                 e.preventDefault();
                 const filePath = link.getAttribute('data-filepath');
                 const lineNumber = link.getAttribute('data-linenumber');
+                const preserveCurrent = e.ctrlKey || e.metaKey;
                 
                 if (filePath && lineNumber) {
                     vscode.postMessage({
                         command: 'navigateToNode',
                         filePath: filePath,
-                        lineNumber: parseInt(lineNumber, 10)
+                        lineNumber: parseInt(lineNumber, 10),
+                        preserveCurrentNode: preserveCurrent
                     });
                 }
             }
@@ -1313,8 +1604,11 @@ export class WebviewManager implements IWebviewManager {
                 const navigationPath = fullPath.trim();
                 const displayText = displayPath.trim();
                 
-                // Make the location part clickable using <a> tag
-                const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" title="Navigate to ${this.escapeHtml(navigationPath)}:${lineNumber}">${this.escapeHtml(displayText)}:${lineNumber}</a>`;
+                // Create a node identifier for context menu operations
+                const nodeId = `${navigationPath}:${lineNumber}`;
+                
+                // Make the location part clickable using <a> tag with node identification
+                const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" data-node-id="${this.escapeHtml(nodeId)}" title="单击跳转到 ${this.escapeHtml(navigationPath)}:${lineNumber}；按住 Ctrl 单击保持当前节点">${this.escapeHtml(displayText)}:${lineNumber}</a>`;
                 htmlLines.push(`${this.escapeHtml(prefix)}${this.escapeHtml(arrow)} ${clickableLocation}${this.escapeHtml(suffix)}`);
             } else {
                 // Try old format: fullPath:lineNumber (backward compatible)
@@ -1323,8 +1617,11 @@ export class WebviewManager implements IWebviewManager {
                 if (match) {
                     const [, prefix, arrow, filePath, lineNumber, suffix] = match;
                     
-                    // Make the location part clickable using <a> tag
-                    const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(filePath.trim())}" data-linenumber="${lineNumber}" title="Navigate to ${this.escapeHtml(filePath)}:${lineNumber}">${this.escapeHtml(filePath)}:${lineNumber}</a>`;
+                    // Create a node identifier for context menu operations
+                    const nodeId = `${filePath.trim()}:${lineNumber}`;
+                    
+                    // Make the location part clickable using <a> tag with node identification
+                    const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(filePath.trim())}" data-linenumber="${lineNumber}" data-node-id="${this.escapeHtml(nodeId)}" title="单击跳转到 ${this.escapeHtml(filePath)}:${lineNumber}；按住 Ctrl 单击保持当前节点">${this.escapeHtml(filePath)}:${lineNumber}</a>`;
                     htmlLines.push(`${this.escapeHtml(prefix)}${this.escapeHtml(arrow)} ${clickableLocation}${this.escapeHtml(suffix)}`);
                 } else {
                     htmlLines.push(this.escapeHtml(line));

@@ -1,276 +1,157 @@
-# CodePath - Visual Code Execution Path Tracker
+# Code Path Marker - Visual Code Execution Path Marker
 
-CodePath is a powerful VS Code extension that helps developers visualize and track code execution paths through interactive node-based graphs. Create, manage, and navigate through your code flow with ease using both text and visual diagram representations.
+> Visualize and document execution paths with interactive node graphs to accelerate debugging, code reviews, and knowledge transfer.
+>
+> [Heads-up] The extension is still under active testing. Interfaces and data formats may change frequently. Please avoid production reliance for now and share feedback to help stabilize the release.
 
-## 🚀 Features
+## Overview
 
-### Interactive Code Path Creation
-- **Right-click Integration**: Create nodes directly from selected code with context menu
-- **Automatic Capture**: File paths, line numbers, and code snippets are captured automatically
-- **Hierarchical Relationships**: Build parent-child relationships between execution points
-- **Smart Navigation**: Switch between nodes using fuzzy name matching or exact position
+Code Path Marker is a VS Code extension that lets you capture execution paths while reading or debugging source code. Each execution point is stored as a navigable node, and the extension provides both text trees and diagram views so you can explore complex logic without getting lost.
 
-### Multiple Visualization Formats
-- **Text View**: Clean hierarchical tree representation of your code paths
-- **Mermaid Diagrams**: Visual flowcharts showing node relationships and execution flow
-- **Real-time Updates**: Preview updates automatically as you modify your graph
-- **Split-screen Layout**: Code and preview side-by-side for optimal workflow
+## Capability Map
 
-### Graph Management
-- **Multiple Graphs**: Create and switch between different code path scenarios
-- **Export/Import**: Share graphs with team members via Markdown format
-- **Auto-save**: Automatic persistence of your work with configurable intervals
-- **Backup & Recovery**: Built-in backup system protects against data loss
+| Area | Highlights |
+| --- | --- |
+| Path Marking | Unified "Code Path" context menu, root/parent/child/sibling nodes, file and folder marking, node copy/paste/cut/reorder |
+| Smart Tracking | Multi-strategy location matching (exact/near/full-text/fuzzy), SHA-256 code fingerprinting, confidence scoring, automatic node updates |
+| Visualization | Text tree and Mermaid diagrams, real-time refresh, split view layouts, customizable preview menu, status bar hints |
+| Graph Management | Multiple Code Paths, auto-save with scheduled backups, auto-load last graph, quick preview from graph files |
+| Collaboration | One-click export/import of `.codepath/*.json`, auto-switch and focus after import, clipboard sharing on Windows/macOS |
+| Developer Experience | Command palette and shortcuts, actionable error hints, configurable defaults for layout, performance, and persistence |
 
-### Developer Experience
-- **Status Bar Integration**: Current graph and node information at a glance
-- **Command Palette**: Full keyboard shortcut support for all operations
-- **Configuration Options**: Customize default views, auto-save, and performance settings
-- **Error Handling**: Graceful error recovery with helpful user messages
+## Typical Use Cases
 
-## 📋 Requirements
+- **Debug complex logic**: Map function call chains step-by-step and keep node locations in sync as code moves.
+- **Review or handover**: Export graphs for teammates to review critical paths and reduce explanation time.
+- **Document and teach**: Generate Mermaid diagrams to illustrate flows for onboarding or workshops.
+- **Refactor safely**: Combine auto-update confidence scores with manual checks to ensure important nodes remain valid.
 
-- **VS Code**: Version 1.74.0 or higher
-- **Node.js**: Latest LTS version (for development)
-- **Workspace**: A VS Code workspace or folder must be open
+## Requirements
 
-## 🛠️ Installation
+- VS Code 1.74.0 or newer
+- Node.js latest LTS (for extension development and testing)
+- An open workspace or folder
 
-1. Open VS Code
-2. Go to Extensions (Ctrl+Shift+X)
-3. Search for "CodePath"
-4. Click Install
-5. Reload VS Code when prompted
+## Quick Start
 
-## 🎯 Quick Start
+### Install the Extension
+1. Open VS Code and go to the Extensions view (`Ctrl+Shift+X`).
+2. Search for **Code Path Marker**.
+3. Click Install and reload VS Code when prompted.
 
-### Creating Your First Code Path
+### Build Your First Execution Path
+1. Select any code snippet and choose `Code Path → Mark as New Node` to create a root.
+2. Keep selecting code and use `Mark as Child Node`, `Mark as Parent Node`, or `Mark as Bro Node` to build hierarchy.
+3. Click nodes inside the Code Path preview panel to navigate to the file and view the live tree or Mermaid diagram.
+4. When code shifts, press Refresh and follow the guidance to update node locations.
 
-1. **Select Code**: Highlight any code in your editor
-2. **Right-click**: Choose "New Node" from the context menu
-3. **View Preview**: The CodePath panel opens automatically showing your node
-4. **Add Children**: Select more code and choose "New Child Node" to build relationships
-5. **Navigate**: Use "Switch Current Node" to jump between different execution points
-
-### Basic Workflow
-
-```
-Select Code → Right-click → New Node → Build Relationships → Navigate & Visualize
-```### Ke
-yboard Shortcuts
+### Keyboard Shortcuts
 
 | Action | Shortcut | Description |
-|--------|----------|-------------|
-| Open Panel | `Ctrl+Shift+C` | Show/hide CodePath preview panel |
-| New Node | `Ctrl+Alt+N` | Create new root node from selection |
-| New Child | `Ctrl+Alt+C` | Create child node under current node |
-| New Parent | `Ctrl+Alt+P` | Create parent node above current node |
-| Switch Node | `Ctrl+Alt+S` | Switch to different node |
-| Switch Graph | `Ctrl+Shift+G` | Switch between graphs |
-| Toggle Format | `Ctrl+Shift+T` | Switch between text and diagram view |
-| Refresh | `Ctrl+Shift+R` | Refresh preview |
+| --- | --- | --- |
+| Toggle preview panel | `Ctrl+Shift+C` | Show or hide the Code Path preview panel |
+| Mark new node | `Ctrl+Alt+N` | Create a new root node from the current selection |
+| Mark child node | `Ctrl+Alt+C` | Add a child node under the current node |
+| Mark parent node | `Ctrl+Alt+P` | Add a parent node above the current node |
+| Mark sibling node | `Ctrl+Alt+B` | Add a sibling node at the same level |
+| Switch node | `Ctrl+Alt+S` | Fuzzy search and select a different node |
+| Switch Code Path | `Ctrl+Shift+G` | Jump between different graphs |
+| Toggle view format | `Ctrl+Shift+T` | Switch between text and Mermaid diagram |
+| Refresh preview | `Ctrl+Shift+R` | Refresh the preview and rerun location checks |
 
-## ⚙️ Configuration
+Use `Ctrl+Shift+P` and search for "Code Path Marker" to discover the full command set.
 
-CodePath can be customized through VS Code settings:
+## Workflow Guide
 
-### Available Settings
+### Building and Organizing Nodes
+- The first node automatically creates a new graph; subsequent nodes follow the hierarchy of the current Code Path.
+- Node names default to function or file information. Edit nodes to add multi-line descriptions and lightweight Markdown formatting.
+- Context menu and shortcuts support copy, paste, cut, move up, and move down so you can keep the execution tree tidy.
 
-```json
-{
-  "codepath.defaultView": "text",              // Default preview format: "text" or "mermaid"
-  "codepath.autoSave": true,                   // Enable automatic graph saving
-  "codepath.autoLoadLastGraph": true,          // Load last used graph on startup
-  "codepath.previewRefreshInterval": 1000,     // Preview update interval (ms)
-  "codepath.maxNodesPerGraph": 100             // Maximum nodes per graph
-}
-```
+### Intelligent Location Tracking
+- Location Tracker blends exact positioning, proximity search, full-text search, and fuzzy matching to recover nodes after code changes.
+- Refresh results include `exact`, `high`, `medium`, or `low` confidence labels to guide whether manual review is needed.
+- Accepting an update syncs file path, line range, and snippet while the preview refreshes immediately.
+- If a lookup fails, keep the original location or use "Navigate to Original" to inspect the previous spot.
 
-### Accessing Settings
+### Graph Management and Visualization
+- The status bar menu surfaces the active Code Path, node count, and auto-save state at a glance.
+- Maintain multiple graphs within one workspace and switch seamlessly; the preview and status bar stay in sync.
+- Text view provides a minimal hierarchical tree, whereas Mermaid view renders a flow diagram; swap formats anytime.
+- The preview context menu offers refresh, export, copy, paste, cut, and reorder options, replacing the default browser menu.
 
-1. Open VS Code Settings (`Ctrl+,`)
-2. Search for "CodePath"
-3. Modify settings as needed
+### Collaboration and Sharing
+- Graph data lives in `.codepath/` using JSON, making it easy to version control and review diffs.
+- Export the current graph from the preview or command palette. You can copy the graph file to the clipboard (Windows/macOS) or share the path (Linux).
+- Importing a `.codepath/*.json` file auto-switches to that graph and focuses the current node so everyone stays aligned.
 
-## 📖 Usage Guide
+## Advanced Capabilities
 
-### Creating Nodes
+- **Tree Forks**: Adding a second parent to a node automatically forms a fork, enabling parallel execution paths for the same code.
+- **Batch Maintenance**: Validation rules help prevent structural breaks when updating many nodes at once.
+- **File/Folder Nodes**: Mark files or directories from the explorer to highlight entry points or module boundaries.
+- **Split-screen Workflows**: Use VS Code split layout to display source and preview side by side when presenting or teaching.
+- **Automatic Backups**: Configure auto-save intervals; background backups guard against data loss on unexpected exits.
 
-#### Root Nodes
-1. Select code text in any file
-2. Right-click and choose "New Node"
-3. A new graph is created automatically if none exists
+## Configuration
 
-#### Child Nodes
-1. Ensure you have a current node selected
-2. Select code for the child node
-3. Right-click and choose "New Child Node"
-4. The new node becomes a child of the current node
+Tune settings via VS Code Preferences (`Ctrl+,`) and search for "Code Path Marker". Key options include:
 
-#### Parent Nodes
-1. Select a node as the future child
-2. Select code for the parent node
-3. Right-click and choose "New Parent Node"
-4. The relationship chain is rebuilt automatically
+| Setting | Default | Description |
+| --- | --- | --- |
+| `codepath.defaultView` | `"text"` | Default preview mode: `"text"` or `"mermaid"` |
+| `codepath.autoSave` | `true` | Enable automatic graph saving |
+| `codepath.autoLoadLastGraph` | `true` | Load the most recent graph on startup |
+| `codepath.previewRefreshInterval` | `1000` | Preview refresh interval in milliseconds |
+| `codepath.maxNodesPerGraph` | `100` | Soft limit per graph; exceeding may trigger performance notices |
 
-### Navigation
+See `docs/CONFIGURATION-EN.md` for the full option list.
 
-#### Fuzzy Name Matching
-- Use "Switch Current Node" command
-- Type partial node name (e.g., "validate" matches "validateUserInput")
-- Select from the filtered list
+## Data Footprint
 
-#### Position Matching
-- Use format: `filename:line` (e.g., `/src/auth.ts:15`)
-- Exact file path and line number matching
-- Useful for jumping to specific code locations
+- Graph files: `.codepath/*.json` (recommended for version control to track history)
+- Backups: `.codepath/backups/` (timestamped snapshots for manual recovery)
+- Temporary files: `.codepath/tmp/` (staging area for import/export operations)
 
-### Graph Management
+## Troubleshooting Cheatsheet
 
-#### Creating Graphs
-1. Use Command Palette (`Ctrl+Shift+P`)
-2. Type "CodePath: Create New Graph"
-3. Enter a descriptive name
-4. Start adding nodes to the new graph
+- **"Please select code text first"**: Highlight code before marking a node; `Ctrl+L` selects the current line quickly.
+- **Location update failed**: Check whether the file was moved or renamed. Use "Navigate to Original" to review and re-mark.
+- **Move node not working**: Ensure the node has siblings and is not already at the boundary.
+- **Preview not refreshing**: Trigger `Ctrl+Shift+R` for a hard refresh; inspect the Output panel if issues persist.
+- **Import has no effect**: Confirm the file resides in the workspace and that the JSON format was not manually altered.
 
-#### Switching Graphs
-1. Use `Ctrl+Shift+G` or Command Palette
-2. Select from available graphs
-3. Preview updates automatically
+More detailed guides live in `docs/LEARNING-GUIDE-EN.md` and `docs/QUICK_REFERENCE_AUTO_UPDATE.md`.
 
-#### Export/Import
-- **Export**: Command Palette → "CodePath: Export Graph"
-- **Import**: Command Palette → "CodePath: Import Graph"
-- **Format**: Markdown files with embedded graph data
+## FAQ
 
-### Preview Formats
+1. **Can I share graphs with teammates?** Yes. Export `.codepath` files and commit them alongside source. Git history makes collaboration transparent.
+2. **What if Mermaid rendering fails?** The built-in validator shows errors when diagrams break. Adjust node names or fall back to text view by default.
+3. **How do I keep large graphs responsive?** Split logic into multiple Code Paths and lower the refresh interval. The extension warns as you approach the node limit.
 
-#### Text View
-```
-📁 My Code Path Graph (3 nodes)
-├── 🔵 validateInput (/src/auth.ts:15) [CURRENT]
-│   └── 🔵 checkPermissions (/src/auth.ts:25)
-└── 🔵 processRequest (/src/api.ts:10)
-```
+## Further Reading
 
-#### Mermaid Diagram View
-```mermaid
-graph TD
-    A[validateInput] --> B[checkPermissions]
-    C[processRequest]
-    
-    classDef current fill:#e1f5fe
-    class A current
-```
+- `docs/API-EN.md`: Command and internal module reference.
+- `docs/AUTO_UPDATE_LOCATION_GUIDE.md`: Deep dive into the auto-update algorithm.
+- `docs/STATUS_BAR_MENU.md`: Status bar features and shortcuts.
+- `docs/change-log/`: Chronological Order notes; cross-reference `CHANGELOG.md` for release summaries.
 
-## 🔧 Advanced Features
+## Contributing
 
-### Auto-save Configuration
-- Graphs are automatically saved every 5 minutes by default
-- Configure interval in settings: `codepath.previewRefreshInterval`
-- Disable with: `"codepath.autoSave": false`
+- Review `docs/CONTRIBUTING-EN.md` for coding standards and workflow.
+- Explore testing artifacts in `TEST_REPORT.md` and `FINAL_TEST_SUMMARY.md`.
+- Submit ideas via Issues or Discussions, or open a Pull Request to collaborate.
 
-### Performance Optimization
-- Recommended limit: 100 nodes per graph
-- Large graphs use segmented loading
-- Preview rendering has 5-second timeout
-- Memory usage monitored automatically
+## License
 
-### Error Recovery
-- Automatic backup every 5 minutes
-- Corrupted file recovery from backups
-- Graceful handling of missing files
-- User-friendly error messages with recovery suggestions
+This project is licensed under MIT. See `LICENSE` in the repository root.
 
-### Workspace Integration
-- Graphs stored in `.codepath/` directory
-- Automatic workspace detection
-- Cross-platform file path handling
-- Git-friendly storage format
+## Support
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### "Please select code text first"
-- **Cause**: No text selected when creating node
-- **Solution**: Highlight code before right-clicking
-
-#### "No current node selected"
-- **Cause**: Trying to create child/parent without current node
-- **Solution**: Switch to a node first or create a root node
-
-#### Preview not updating
-- **Cause**: Preview refresh interval too high or rendering error
-- **Solution**: Use `Ctrl+Shift+R` to force refresh or check error messages
-
-#### Graph not loading on startup
-- **Cause**: Auto-load disabled or corrupted graph file
-- **Solution**: Enable auto-load in settings or manually switch graphs
-
-### Performance Issues
-
-#### Slow preview updates
-- **Cause**: Graph too large or complex Mermaid diagrams
-- **Solution**: Reduce node count or switch to text view
-
-#### High memory usage
-- **Cause**: Multiple large graphs loaded
-- **Solution**: Close unused graphs or restart VS Code
-
-### File System Issues
-
-#### Permission denied errors
-- **Cause**: Insufficient file system permissions
-- **Solution**: Check workspace permissions or run VS Code as administrator
-
-#### Workspace not found
-- **Cause**: No folder/workspace open in VS Code
-- **Solution**: Open a folder or workspace before using CodePath
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING-EN.md) for details.
-
-### Development Setup
-
-1. Clone the repository
-2. Run `npm install`
-3. Open in VS Code
-4. Press `F5` to launch Extension Development Host
-5. Make changes and test
-
-### Running Tests
-
-```bash
-# Unit tests
-npm run test:unit
-
-# Integration tests
-npm run test:unit -- src/integration/
-
-# All tests with coverage
-npm run test:unit -- --coverage
-```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-org/codepath-extension/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/codepath-extension/discussions)
-- **Documentation**: [Wiki](https://github.com/your-org/codepath-extension/wiki)
-
-## 🎉 Acknowledgments
-
-- VS Code Extension API team for excellent documentation
-- Mermaid.js for diagram rendering capabilities
-- The open-source community for inspiration and feedback
+- Issues: <https://github.com/your-org/codepath-extension/issues>
+- Discussions: <https://github.com/your-org/codepath-extension/discussions>
+- Interactive docs: `docs/index.html`
 
 ---
 
-**Happy Code Tracking! 🚀**
-
-*CodePath helps you understand your code flow like never before. Start visualizing your execution paths today!*
+**Enjoy the boost of visualizing your execution paths!**

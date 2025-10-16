@@ -9,6 +9,8 @@ export const window = {
     showInformationMessage: () => Promise.resolve(),
     showErrorMessage: () => Promise.resolve(),
     showWarningMessage: () => Promise.resolve(),
+    showQuickPick: () => Promise.resolve(),
+    visibleTextEditors: [],
     createStatusBarItem: () => ({
         text: '',
         tooltip: '',

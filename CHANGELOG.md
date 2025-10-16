@@ -7,12 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-10-16
+
 ### Added
 - Initial release preparation
 - Comprehensive test suite with 575+ tests
 - Performance monitoring and optimization
 - Cross-platform compatibility testing
 - Auto-open preview panel on startup when graph has nodes
+- **Menu Structure Restructure** - Complete UI overhaul with unified menu structure
+  - Plugin display name changed from "Code Path Wormhole" to "Code Path Marker"
+  - All commands moved to unified "Code Path" submenu
+  - Command titles updated: "New" → "Mark as" (e.g., "Mark as New Node")
+  - Maintained all existing keyboard shortcuts and functionality
+  - Enhanced menu organization with logical grouping
+- **File/Folder Context Support** - Create nodes directly from file explorer
+  - Right-click any file or folder in explorer to create nodes
+  - Automatic file/folder name as node name
+  - Automatic path resolution and line number handling
+  - Seamless integration with existing node creation workflow
+- **Node Copy/Paste/Cut Operations** - Advanced node manipulation features
+  - Copy nodes with all children to clipboard
+  - Cut nodes to move them to new locations
+  - Paste node trees with automatic ID generation
+  - Deep copy functionality preserves complete node structure
+  - Cross-graph paste support
+- **Node Order Management** - Adjust node positions within siblings
+  - Move nodes up/down within same parent level
+  - Smart boundary detection with user-friendly messages
+  - Automatic preview refresh after reordering
+  - Support for both root nodes and child nodes
+- **Preview Interface Custom Menu** - Enhanced preview interaction
+  - Custom right-click menu in preview panel
+  - Context-sensitive menu options (Refresh, Export, Copy, Paste, Cut, Move Up, Move Down)
+  - Replaces default browser context menu
+  - Direct integration with command system
+- **Create Bro Node feature** - Create sibling nodes at the same level as the current node
+  - Right-click context menu integration with "Mark as Bro Node" option
+  - Keyboard shortcut `Ctrl+Alt+B` for quick access
+  - Command palette support with "Code Path Marker: Mark as Bro Node" command
+  - Smart relationship handling: creates child of parent node or new root node
+  - Automatic code capture from selected text
+  - Seamless integration with existing node creation workflow
 - **Status bar quick menu** - Click status bar to access all graph management features
   - Create new graph
   - Switch between graphs
@@ -39,8 +75,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Preview not updating immediately after node location update - now refreshes instantly with latest data
+- Menu structure inconsistencies across different contexts
+- Command registration and context handling improvements
+- Enhanced error handling for new clipboard and order operations
+
+### Technical Implementation
+- **New Manager Classes**
+  - `ClipboardManager`: Handles node copy/paste/cut operations with deep tree copying
+  - `NodeOrderManager`: Manages sibling node ordering with boundary detection
+  - Enhanced `CommandManager`: Integrated new operations with existing workflow
+  - Extended `WebviewManager`: Custom context menu implementation for preview
+- **Data Model Extensions**
+  - `ClipboardData` interface for clipboard operations
+  - `NodeTreeData` interface for hierarchical node copying
+  - Extended `Graph` interface with node ordering support
+  - New error types for clipboard and order operations
+- **Menu System Redesign**
+  - Submenu structure with logical grouping
+  - Context-sensitive menu item display
+  - Enhanced command registration with proper categorization
+  - File explorer integration with resource context detection
+- **Enhanced Error Handling**
+  - New error categories for clipboard and order operations
+  - User-friendly error messages with recovery suggestions
+  - Graceful degradation for edge cases
+  - Comprehensive validation for all new operations
 
 ### Changed
+- **Plugin Identity Update** - Complete rebranding for better clarity
+  - Display name: "Code Path Wormhole" → "Code Path Marker"
+  - Command category: "CodePath" → "Code Path Marker"
+  - All user-facing text updated to reflect "marking" concept
+  - Documentation updated with new naming conventions
+- **Menu Structure Overhaul** - Unified and organized menu system
+  - All CodePath commands now under "Code Path" submenu
+  - Logical grouping: Create (1_create), Edit (2_edit), Order (3_order), File (4_file)
+  - Conditional menu item display based on context
+  - Enhanced menu item descriptions and organization
+- **Command Naming Convention** - More intuitive command names
+  - "New Node" → "Mark as New Node"
+  - "New Child Node" → "Mark as Child Node"
+  - "New Parent Node" → "Mark as Parent Node"
+  - "New Bro Node" → "Mark as Bro Node"
+  - All success messages updated to use "marked as" terminology
+- **Enhanced User Feedback** - Improved messaging system
+  - Success messages use "marked as" instead of "created"
+  - Error messages reference updated command names
+  - Consistent terminology throughout the extension
 - Improved error handling and recovery mechanisms
 - Enhanced Mermaid rendering with better sanitization
 - Optimized memory usage for large graphs

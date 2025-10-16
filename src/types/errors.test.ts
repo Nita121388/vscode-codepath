@@ -124,6 +124,51 @@ describe('CodePathError', () => {
             
             expect(error.userMessage).toBe('Graph is too large for memory');
         });
+
+        it('should create clipboard error', () => {
+            const error = CodePathError.clipboardError('Copy operation failed');
+            
+            expect(error.category).toBe('clipboard');
+            expect(error.message).toBe('剪贴板操作失败: Copy operation failed');
+            expect(error.userMessage).toBe('Clipboard operation failed. Please try again.');
+            expect(error.suggestedAction).toBe('clearClipboard');
+        });
+
+        it('should create clipboard error with custom message', () => {
+            const error = CodePathError.clipboardError('Paste failed', 'Custom clipboard message');
+            
+            expect(error.userMessage).toBe('Custom clipboard message');
+        });
+
+        it('should create order error', () => {
+            const error = CodePathError.orderError('Move up failed');
+            
+            expect(error.category).toBe('order');
+            expect(error.message).toBe('节点顺序操作失败: Move up failed');
+            expect(error.userMessage).toBe('Node order operation failed. Please check node position and try again.');
+            expect(error.suggestedAction).toBe('refreshPreview');
+        });
+
+        it('should create order error with custom message', () => {
+            const error = CodePathError.orderError('Move down failed', 'Custom order message');
+            
+            expect(error.userMessage).toBe('Custom order message');
+        });
+
+        it('should create menu error', () => {
+            const error = CodePathError.menuError('Context menu failed');
+            
+            expect(error.category).toBe('menu');
+            expect(error.message).toBe('菜单操作失败: Context menu failed');
+            expect(error.userMessage).toBe('Menu operation failed. Please try again or refresh the interface.');
+            expect(error.suggestedAction).toBe('refreshPreview');
+        });
+
+        it('should create menu error with custom message', () => {
+            const error = CodePathError.menuError('Menu display failed', 'Custom menu message');
+            
+            expect(error.userMessage).toBe('Custom menu message');
+        });
     });
 
     describe('error inheritance', () => {

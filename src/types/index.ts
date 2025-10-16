@@ -2,6 +2,10 @@
  * Core data model interfaces for CodePath extension
  */
 
+// Re-export error types for convenience
+export { CodePathError } from './errors';
+export type { ErrorCategory, RecoveryAction } from './errors';
+
 export interface Node {
     id: string;
     name: string;
@@ -25,6 +29,8 @@ export interface Graph {
     nodes: Map<string, Node>;
     rootNodes: string[];
     currentNodeId: string | null;
+    // 新增字段以支持节点顺序管理
+    nodeOrder?: Map<string, string[]>; // parentId -> ordered childIds
 }
 
 export interface GraphMetadata {
@@ -53,4 +59,92 @@ export interface StatusBarInfo {
 }
 
 export type ViewFormat = 'text' | 'mermaid';
-export type ErrorCategory = 'user' | 'filesystem' | 'validation' | 'rendering';
+
+// 新增类型定义
+export type ClipboardOperationType = 'copy' | 'cut';
+export type NodeMoveDirection = 'up' | 'down';
+
+// 创建节点时的上下文信息
+export interface CreationContext {
+    name: string;
+    filePath: string;
+    lineNumber: number;
+    source?: 'editor' | 'explorer'; // 标识创建来源
+}
+
+// Clipboard-related interfaces
+export interface ClipboardData {
+    type: ClipboardOperationType;
+    nodeTree: NodeTreeData;
+    timestamp: number;
+    originalNodeId?: string;
+}
+
+export interface NodeTreeData {
+    node: Node;
+    children: NodeTreeData[];
+}
+
+// Menu-related interfaces
+export interface MenuContext {
+    nodeId?: string;
+    filePath?: string;
+    isFile?: boolean;
+    isFolder?: boolean;
+}
+
+// Node operation result interfaces
+export interface NodeOperationResult {
+    success: boolean;
+    message: string;
+    affectedNodes?: string[];
+}
+
+export interface ClipboardOperationResult extends NodeOperationResult {
+    clipboardData?: ClipboardData;
+}
+
+export interface OrderOperationResult extends NodeOperationResult {
+    newPosition?: number;
+    moved?: boolean;
+}
+
+// Enhanced error handling and user feedback interfaces
+export interface UserFeedbackMessage {
+    type: 'success' | 'info' | 'warning' | 'error';
+    message: string;
+    details?: string;
+    actionLabel?: string;
+    action?: () => void;
+    duration?: number; // in milliseconds, 0 for persistent
+}
+
+export interface OperationFeedback {
+    operation: string;
+    success: boolean;
+    message: string;
+    details?: string;
+    suggestedAction?: string;
+    debugInfo?: any;
+}
+
+// Internationalization support for error messages
+export interface LocalizedMessages {
+    [key: string]: {
+        zh: string;
+        en: string;
+    };
+}
+
+// Debug logging levels
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface LogEntry {
+    level: LogLevel;
+    timestamp: Date;
+    component: string;
+    operation: string;
+    message: string;
+    data?: any;
+    error?: Error;
+}

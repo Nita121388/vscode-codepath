@@ -10,6 +10,7 @@ export class TextRenderer {
     private readonly indentSize: number = 2;
     private readonly arrowSymbol: string = '→';
     private readonly branchSymbol: string = '├─';
+    private readonly branchPointSymbol: string = '🌲';
     private readonly lastBranchSymbol: string = '└─';
     private readonly verticalSymbol: string = '│';
     private readonly spaceSymbol: string = ' ';
@@ -47,7 +48,8 @@ export class TextRenderer {
             for (let i = 0; i < rootNodes.length; i++) {
                 const rootNode = rootNodes[i];
                 const isLastRoot = i === rootNodes.length - 1;
-
+                
+                sections.push(this.branchPointSymbol);
                 sections.push(this.renderNodeHierarchy(graph, rootNode, '', isLastRoot));
 
                 // Add spacing between root hierarchies (except after the last one)
@@ -356,6 +358,7 @@ export class TextRenderer {
                 const childInfo = childCount > 0 ? ` (${childCount} children)` : '';
                 const parentInfo = node.parentId ? ' (has parent)' : ' (root)';
 
+                sections.push(`  ${this.branchPointSymbol}`);
                 sections.push(`  ${this.branchSymbol} ${node.name}${currentMarker} :${node.lineNumber}${childInfo}${parentInfo}`);
             }
 

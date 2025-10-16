@@ -37,5 +37,19 @@ coverage/
 # Example files (optional, keep if needed for demo)
 example/
 
+# Development documentation and scripts (not for release)
+docs/change-log/
+scripts/
+
+# Development and testing files
+manual-test-script.js
+test-bro-node.js
+verify-implementation.js
+TODO.md
+PACKAGING.md
+
+# Visual Studio
+.vs/
+
 # Compiled JavaScript (we have TypeScript source)
 # out/ is already ignored above

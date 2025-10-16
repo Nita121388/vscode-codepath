@@ -5,6 +5,9 @@ import { PreviewManager } from './PreviewManager';
 import { WebviewManager } from './WebviewManager';
 import { StatusBarManager } from './StatusBarManager';
 import { ConfigurationManager } from './ConfigurationManager';
+import { ClipboardManager } from './ClipboardManager';
+import { NodeOrderManager } from './NodeOrderManager';
+import { FeedbackManager } from './FeedbackManager';
 import { CodePathError } from '../types/errors';
 import { Graph, Node } from '../types';
 import { INodeManager } from '../interfaces';
@@ -20,6 +23,9 @@ export class IntegrationManager {
     private webviewManager: WebviewManager;
     private statusBarManager: StatusBarManager;
     private configManager: ConfigurationManager;
+    private clipboardManager: ClipboardManager;
+    private nodeOrderManager: NodeOrderManager;
+    private feedbackManager: FeedbackManager;
     private context: vscode.ExtensionContext;
     private disposables: vscode.Disposable[] = [];
     private lastGraphUpdateTime: number = 0;
@@ -41,6 +47,11 @@ export class IntegrationManager {
         this.configManager = configManager;
         this.context = context;
 
+        // Initialize new managers
+        this.clipboardManager = new ClipboardManager(nodeManager, graphManager);
+        this.nodeOrderManager = new NodeOrderManager(nodeManager, graphManager);
+        this.feedbackManager = new FeedbackManager();
+
         this.setupIntegration();
     }
 
@@ -54,7 +65,7 @@ export class IntegrationManager {
         });
 
         this.previewManager.onError((error) => {
-            vscode.window.showErrorMessage(`Preview error: ${error.message}`);
+            this.feedbackManager.handleError('预览渲染', error, 'PreviewManager');
         });
 
         // Connect webview manager callbacks
@@ -69,8 +80,8 @@ export class IntegrationManager {
             const currentGraph = this.graphManager.getCurrentGraph();
             console.log('[IntegrationManager] Current graph:', currentGraph ? `${currentGraph.id} with ${currentGraph.nodes.size} nodes` : 'null');
             if (currentGraph) {
-                const { Graph: GraphModel } = await import('../models/Graph');
-                const graphModel = GraphModel.fromJSON(currentGraph);
+                const { Graph } = await import('../models/Graph');
+                const graphModel = Graph.fromJSON(currentGraph);
                 console.log('[IntegrationManager] Setting graph in PreviewManager');
                 this.previewManager.setGraph(graphModel);
             }
@@ -132,8 +143,8 @@ export class IntegrationManager {
                 console.log('[IntegrationManager] Node line numbers:', nodes.map((n: any) => `${n.name}:${n.lineNumber}`).join(', '));
                 console.log('[IntegrationManager] Node warnings:', nodes.map((n: any) => `${n.name}:${n.validationWarning || 'none'}`).join(', '));
                 
-                const { Graph: GraphModel } = await import('../models/Graph');
-                const graphModel = GraphModel.fromJSON(currentGraph);
+                const { Graph } = await import('../models/Graph');
+                const graphModel = Graph.fromJSON(currentGraph);
                 console.log('[IntegrationManager] Setting graph in PreviewManager');
                 
                 // Clear current graph first to force setGraph to accept the new one
@@ -156,13 +167,27 @@ export class IntegrationManager {
                 console.log(`[IntegrationManager] Current node set to: ${nodeId}`);
 
                 // Reload the graph to get the updated currentNodeId
-                const currentGraph = this.graphManager.getCurrentGraph();
+                let currentGraph = this.graphManager.getCurrentGraph();
                 if (currentGraph) {
                     console.log(`[IntegrationManager] Current graph currentNodeId: ${currentGraph.currentNodeId}`);
                     
+                    const switchedNode = currentGraph.nodes.get(nodeId);
+                    if (switchedNode) {
+                        try {
+                            const stat = await vscode.workspace.fs.stat(vscode.Uri.file(switchedNode.filePath));
+                            if ((stat.type & vscode.FileType.Directory) !== 0 && switchedNode.validationWarning) {
+                                console.log('[IntegrationManager] Clearing validation warning for directory node:', switchedNode.name);
+                                await this.nodeManager.updateNode(nodeId, { validationWarning: undefined });
+                                currentGraph = this.graphManager.getCurrentGraph() || currentGraph;
+                            }
+                        } catch (error) {
+                            console.warn('[IntegrationManager] Failed to stat node path during switch:', error);
+                        }
+                    }
+                    
                     // Convert to Graph model and set in preview manager
-                    const { Graph: GraphModel } = await import('../models/Graph');
-                    const graphModel = GraphModel.fromJSON(currentGraph);
+                    const { Graph } = await import('../models/Graph');
+                    const graphModel = Graph.fromJSON(currentGraph);
                     this.previewManager.setGraph(graphModel);
                     console.log(`[IntegrationManager] Graph set in preview manager`);
                 }
@@ -203,11 +228,11 @@ export class IntegrationManager {
 
                 if (confirmation === '删除') {
                     await this.nodeManager.deleteNode(currentGraph.currentNodeId);
-                    vscode.window.showInformationMessage(`已删除节点: ${currentNode.name}`);
+                    this.feedbackManager.showSuccess(`已删除节点: ${currentNode.name}`);
                     await this.updatePreview();
                 }
             } catch (error) {
-                vscode.window.showErrorMessage(`删除节点失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                this.feedbackManager.handleError('删除节点', error, 'IntegrationManager');
             }
         });
 
@@ -227,8 +252,8 @@ export class IntegrationManager {
                 }
 
                 // Count descendants
-                const { Graph: GraphModel } = await import('../models/Graph');
-                const graphModel = GraphModel.fromJSON(currentGraph);
+                const { Graph } = await import('../models/Graph');
+                const graphModel = Graph.fromJSON(currentGraph);
                 const descendants = graphModel.getDescendants(currentGraph.currentNodeId);
                 const totalToDelete = descendants.length + 1;
 
@@ -240,11 +265,11 @@ export class IntegrationManager {
 
                 if (confirmation === '删除') {
                     await this.nodeManager.deleteNodeWithChildren(currentGraph.currentNodeId);
-                    vscode.window.showInformationMessage(`已删除 ${totalToDelete} 个节点`);
+                    this.feedbackManager.showSuccess(`已删除 ${totalToDelete} 个节点`);
                     await this.updatePreview();
                 }
             } catch (error) {
-                vscode.window.showErrorMessage(`删除节点失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                this.feedbackManager.handleError('删除节点', error, 'IntegrationManager');
             }
         });
 
@@ -397,7 +422,7 @@ export class IntegrationManager {
                 (this as any).debouncedSave();
             }
 
-            vscode.window.showInformationMessage(`Created node: ${node.name}`);
+            this.feedbackManager.showSuccess(`已标记为新节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
             return node;
 
         } catch (error) {
@@ -445,7 +470,7 @@ export class IntegrationManager {
                 (this as any).debouncedSave();
             }
 
-            vscode.window.showInformationMessage(`Created child node: ${childNode.name}`);
+            this.feedbackManager.showSuccess(`已标记为子节点: ${childNode.name}`, `文件: ${childNode.filePath}, 行号: ${childNode.lineNumber}`);
             return childNode;
 
         } catch (error) {
@@ -490,8 +515,8 @@ export class IntegrationManager {
                 console.error(`[IntegrationManager] This indicates the graph data is out of sync`);
                 
                 // Try to repair the graph
-                const GraphModel = require('../models/Graph').Graph;
-                const graphModel = GraphModel.fromJSON(currentGraph);
+                const { Graph } = require('../models/Graph');
+                const graphModel = Graph.fromJSON(currentGraph);
                 await this.graphManager.saveGraph(graphModel.toJSON());
                 
                 throw CodePathError.userError('Current node is no longer valid. The graph has been repaired. Please select a node and try again.');
@@ -519,12 +544,314 @@ export class IntegrationManager {
                 (this as any).debouncedSave();
             }
 
-            vscode.window.showInformationMessage(`Created parent node: ${parentNode.name}`);
+            this.feedbackManager.showSuccess(`已标记为父节点: ${parentNode.name}`, `文件: ${parentNode.filePath}, 行号: ${parentNode.lineNumber}`);
             return parentNode;
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             vscode.window.showErrorMessage(`Failed to create parent node: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete bro node creation workflow
+     * 
+     * This method orchestrates the entire process of creating a sibling (bro) node,
+     * including validation, node creation, UI updates, and user feedback.
+     * 
+     * Workflow steps:
+     * 1. Validate prerequisites (current node exists, text selected)
+     * 2. Create the sibling node using NodeManager
+     * 3. Set the new node as current
+     * 4. Update all UI components (preview, status bar, context)
+     * 5. Auto-open preview panel if needed
+     * 6. Trigger auto-save if configured
+     * 7. Show success message to user
+     * 
+     * @param selectedText - The selected code text to use as node name/content
+     * @param filePath - The file path where the code is located
+     * @param lineNumber - The line number in the file (1-based)
+     * @returns Promise<Node> - The newly created sibling node
+     * @throws CodePathError for user-facing errors, Error for system errors
+     */
+    public async createBroNodeWorkflow(selectedText: string, filePath: string, lineNumber: number): Promise<Node> {
+        try {
+            // Step 1: Validate prerequisites
+            // Ensure we have a current node to create a sibling for
+            const currentNode = this.nodeManager.getCurrentNode();
+            if (!currentNode) {
+                throw CodePathError.userError('没有选择当前节点。请先创建或选择一个节点。');
+            }
+
+            // Validate that user has selected meaningful text
+            if (!selectedText || selectedText.trim().length === 0) {
+                throw CodePathError.userError('请先选择代码文本');
+            }
+
+            // Step 2: Create the sibling node
+            // Delegate to NodeManager for the actual node creation logic
+            const broNode = await this.nodeManager.createBroNode(
+                selectedText.trim(), // Clean up whitespace from selection
+                filePath,
+                lineNumber
+            );
+
+            // Step 3: Update current node reference
+            // Set the newly created sibling as the active node
+            await this.nodeManager.setCurrentNode(broNode.id);
+
+            // Step 4: Update all connected UI components
+            // Ensure preview, status bar, and VS Code context are synchronized
+            await this.updateAllComponents();
+
+            // Step 5: Auto-open preview panel for immediate feedback
+            // Show the updated graph structure to the user
+            await this.ensurePreviewVisible();
+
+            // Step 6: Trigger auto-save if configured
+            // Persist changes automatically if user has enabled auto-save
+            if ((this as any).debouncedSave) {
+                (this as any).debouncedSave();
+            }
+
+            // Step 7: Provide user feedback
+            // Show success message with the name of the created node
+            vscode.window.showInformationMessage(`已标记为兄弟节点: ${broNode.name}`);
+            return broNode;
+
+        } catch (error) {
+            // Handle and report errors with appropriate user messaging
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`创建兄弟节点失败: ${errorMessage}`);
+            
+            // Re-throw to allow caller to handle if needed
+            throw error;
+        }
+    }
+
+    /**
+     * Complete clipboard copy workflow
+     * Copies the current node and all its children to clipboard
+     */
+    public async copyNodeWorkflow(nodeId?: string): Promise<void> {
+        try {
+            // Use provided nodeId or current node
+            const targetNodeId = nodeId || this.nodeManager.getCurrentNode()?.id;
+            if (!targetNodeId) {
+                throw CodePathError.userError('没有选择当前节点。请先创建或选择一个节点。');
+            }
+
+            // Perform copy operation
+            await this.clipboardManager.copyNode(targetNodeId);
+
+            // Update VS Code context for paste command availability
+            this.updateVSCodeContext();
+
+            vscode.window.showInformationMessage('已复制该节点及其子节点');
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`复制节点失败: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete clipboard cut workflow
+     * Cuts the current node and all its children to clipboard
+     */
+    public async cutNodeWorkflow(nodeId?: string): Promise<void> {
+        try {
+            // Use provided nodeId or current node
+            const targetNodeId = nodeId || this.nodeManager.getCurrentNode()?.id;
+            if (!targetNodeId) {
+                throw CodePathError.userError('没有选择当前节点。请先创建或选择一个节点。');
+            }
+
+            // Perform cut operation
+            await this.clipboardManager.cutNode(targetNodeId);
+
+            // Update VS Code context for paste command availability
+            this.updateVSCodeContext();
+
+            vscode.window.showInformationMessage('已剪切该节点及其子节点');
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`剪切节点失败: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete clipboard paste workflow
+     * Pastes nodes from clipboard as children of current node or as root nodes
+     */
+    public async pasteNodeWorkflow(parentId?: string): Promise<Node[]> {
+        try {
+            // Check if clipboard has data
+            if (!this.clipboardManager.hasClipboardData()) {
+                throw CodePathError.userError('剪贴板为空。请先复制或剪切一个节点。');
+            }
+
+            // Use provided parentId or current node as parent
+            const targetParentId = parentId || this.nodeManager.getCurrentNode()?.id;
+
+            // Perform paste operation
+            const pastedNodes = await this.clipboardManager.pasteNode(targetParentId);
+
+            // Set the first pasted node as current if any were created
+            if (pastedNodes.length > 0) {
+                await this.nodeManager.setCurrentNode(pastedNodes[0].id);
+            }
+
+            // Update all connected components
+            await this.updateAllComponents();
+
+            // Auto-open preview panel if not already open
+            await this.ensurePreviewVisible();
+
+            // Trigger debounced auto-save if enabled
+            if ((this as any).debouncedSave) {
+                (this as any).debouncedSave();
+            }
+
+            const nodeCount = pastedNodes.length;
+            const rootCount = pastedNodes.filter(n => !n.parentId || n.parentId === targetParentId).length;
+            vscode.window.showInformationMessage(`已粘贴 ${rootCount} 个节点树（共 ${nodeCount} 个节点）`);
+
+            return pastedNodes;
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`粘贴节点失败: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete node move up workflow
+     * Moves the current node up in its sibling order
+     */
+    public async moveNodeUpWorkflow(nodeId?: string): Promise<void> {
+        try {
+            // Use provided nodeId or current node
+            const targetNodeId = nodeId || this.nodeManager.getCurrentNode()?.id;
+            if (!targetNodeId) {
+                throw CodePathError.userError('没有选择当前节点。请先创建或选择一个节点。');
+            }
+
+            // Perform move up operation
+            const moved = await this.nodeOrderManager.moveNodeUp(targetNodeId);
+
+            if (moved) {
+                // Update all connected components
+                await this.updateAllComponents();
+
+                // Trigger debounced auto-save if enabled
+                if ((this as any).debouncedSave) {
+                    (this as any).debouncedSave();
+                }
+
+                vscode.window.showInformationMessage('节点已上移');
+            } else {
+                vscode.window.showInformationMessage('节点已在最上方');
+            }
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`移动节点失败: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete node move down workflow
+     * Moves the current node down in its sibling order
+     */
+    public async moveNodeDownWorkflow(nodeId?: string): Promise<void> {
+        try {
+            // Use provided nodeId or current node
+            const targetNodeId = nodeId || this.nodeManager.getCurrentNode()?.id;
+            if (!targetNodeId) {
+                throw CodePathError.userError('没有选择当前节点。请先创建或选择一个节点。');
+            }
+
+            // Perform move down operation
+            const moved = await this.nodeOrderManager.moveNodeDown(targetNodeId);
+
+            if (moved) {
+                // Update all connected components
+                await this.updateAllComponents();
+
+                // Trigger debounced auto-save if enabled
+                if ((this as any).debouncedSave) {
+                    (this as any).debouncedSave();
+                }
+
+                vscode.window.showInformationMessage('节点已下移');
+            } else {
+                vscode.window.showInformationMessage('节点已在最下方');
+            }
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`移动节点失败: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Complete file/folder context node creation workflow
+     * Creates a node from file explorer context (file or folder selection)
+     */
+    public async createNodeFromFileContextWorkflow(
+        resourceUri: vscode.Uri,
+        nodeType: 'new' | 'child' | 'parent' | 'bro' = 'new'
+    ): Promise<Node> {
+        try {
+            if (!resourceUri) {
+                throw CodePathError.userError('未选择文件或文件夹');
+            }
+
+            // Get file/folder information
+            const filePath = resourceUri.fsPath;
+            const fileName = require('path').basename(filePath);
+            
+            // Check if it's a file or directory
+            const fs = require('fs');
+            const stats = await fs.promises.stat(filePath);
+            const isDirectory = stats.isDirectory();
+            
+            // Use filename/foldername as node name
+            const nodeName = fileName;
+            const lineNumber = isDirectory ? 1 : 1; // Default to line 1 for folders and files
+
+            // Create node based on type
+            let node: Node;
+            switch (nodeType) {
+                case 'new':
+                    node = await this.createNodeWorkflow(nodeName, filePath, lineNumber);
+                    break;
+                case 'child':
+                    node = await this.createChildNodeWorkflow(nodeName, filePath, lineNumber);
+                    break;
+                case 'parent':
+                    node = await this.createParentNodeWorkflow(nodeName, filePath, lineNumber);
+                    break;
+                case 'bro':
+                    node = await this.createBroNodeWorkflow(nodeName, filePath, lineNumber);
+                    break;
+                default:
+                    throw CodePathError.userError(`不支持的节点类型: ${nodeType}`);
+            }
+
+            return node;
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            vscode.window.showErrorMessage(`从文件创建节点失败: ${errorMessage}`);
             throw error;
         }
     }
@@ -619,8 +946,8 @@ export class IntegrationManager {
             
             if (currentGraph) {
                 // Convert to Graph model for preview manager
-                const { Graph: GraphModel } = await import('../models/Graph');
-                const graphModel = GraphModel.fromJSON(currentGraph);
+                const { Graph } = await import('../models/Graph');
+                const graphModel = Graph.fromJSON(currentGraph);
                 // setGraph will automatically schedule an update with debouncing
                 this.previewManager.setGraph(graphModel);
             } else {
@@ -684,9 +1011,11 @@ export class IntegrationManager {
     private updateVSCodeContext(): void {
         const hasCurrentNode = this.nodeManager.getCurrentNode() !== null;
         const hasCurrentGraph = this.graphManager.getCurrentGraph() !== null;
+        const hasClipboardNode = this.clipboardManager.hasClipboardData();
         
         vscode.commands.executeCommand('setContext', 'codepath.hasCurrentNode', hasCurrentNode);
         vscode.commands.executeCommand('setContext', 'codepath.hasCurrentGraph', hasCurrentGraph);
+        vscode.commands.executeCommand('setContext', 'codepath.hasClipboardNode', hasClipboardNode);
     }
 
     /**
@@ -694,15 +1023,38 @@ export class IntegrationManager {
      */
     private async navigateToNode(node: Node): Promise<void> {
         try {
-            const document = await vscode.workspace.openTextDocument(node.filePath);
+            const uri = vscode.Uri.file(node.filePath);
+            console.log('[IntegrationManager] navigateToNode start:', {
+                path: node.filePath,
+                line: node.lineNumber
+            });
+
+            const fileStat = await vscode.workspace.fs.stat(uri);
+
+            if ((fileStat.type & vscode.FileType.Directory) !== 0) {
+                // 对于目录节点，无法在编辑器中打开，聚焦资源管理器
+                console.log('[IntegrationManager] navigateToNode detected directory, revealing in explorer');
+                await vscode.commands.executeCommand('revealInExplorer', uri);
+                vscode.window.showInformationMessage(`已在资源管理器中定位目录：${node.filePath}`);
+                return;
+            }
+
+            const document = await vscode.workspace.openTextDocument(uri);
             const editor = await vscode.window.showTextDocument(document);
             
             // Navigate to the line
-            const position = new vscode.Position(node.lineNumber - 1, 0);
+            const position = new vscode.Position(Math.max(0, node.lineNumber - 1), 0);
             editor.selection = new vscode.Selection(position, position);
             editor.revealRange(new vscode.Range(position, position));
+            console.log('[IntegrationManager] navigateToNode completed navigation');
         } catch (error) {
-            vscode.window.showWarningMessage(`Could not navigate to ${node.filePath}:${node.lineNumber}`);
+            console.warn('[IntegrationManager] navigateToNode failed:', {
+                path: node.filePath,
+                line: node.lineNumber,
+                error
+            });
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showWarningMessage(`无法定位到 ${node.filePath}:${node.lineNumber}，原因：${message}`);
         }
     }
 
@@ -819,11 +1171,27 @@ export class IntegrationManager {
     }
 
     /**
+     * Get the clipboard manager instance
+     */
+    public getClipboardManager(): ClipboardManager {
+        return this.clipboardManager;
+    }
+
+    /**
+     * Get the node order manager instance
+     */
+    public getNodeOrderManager(): NodeOrderManager {
+        return this.nodeOrderManager;
+    }
+
+    /**
      * Dispose of all resources
      */
     public dispose(): void {
         this.disposables.forEach(disposable => disposable.dispose());
         this.disposables = [];
         this.nodeManager.dispose();
+        this.clipboardManager.dispose();
+        this.feedbackManager.dispose();
     }
 }

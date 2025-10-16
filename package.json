@@ -1,8 +1,8 @@
 {
   "name": "codepath-extension",
-  "displayName": "Code Path Wormhole",
-  "description": "Track and visualize code execution paths with interactive node-based graphs",
-  "version": "0.1.1",
+  "displayName": "Code Path Marker",
+  "description": "Mark and visualize code execution paths with interactive node-based graphs",
+  "version": "0.2.0",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -42,128 +42,206 @@
     "commands": [
       {
         "command": "codepath.createNode",
-        "title": "New Node",
-        "category": "CodePath"
+        "title": "Mark as New Node",
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.createChildNode",
-        "title": "New Child Node",
-        "category": "CodePath"
+        "title": "Mark as Child Node",
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.createParentNode",
-        "title": "New Parent Node",
-        "category": "CodePath"
+        "title": "Mark as Parent Node",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.createBroNode",
+        "title": "Mark as Bro Node",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.copyNode",
+        "title": "Copy Node",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.pasteNode",
+        "title": "Paste Node",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.cutNode",
+        "title": "Cut Node",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.moveNodeUp",
+        "title": "Move Up",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.moveNodeDown",
+        "title": "Move Down",
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.switchCurrentNode",
         "title": "Switch Current Node",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.deleteCurrentNode",
         "title": "Delete Current Node",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.deleteCurrentNodeWithChildren",
         "title": "Delete Current Node and Children",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.openPanel",
         "title": "Open CodePath Panel",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.refreshPreview",
         "title": "Refresh Preview",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.createGraph",
         "title": "Create New CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.switchGraph",
         "title": "Switch CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.exportGraph",
         "title": "Export CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.importGraph",
         "title": "Import CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.deleteGraph",
         "title": "Delete CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.togglePreviewFormat",
         "title": "Toggle Preview Format",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.validateNodeLocations",
         "title": "Validate Node Locations",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.relocateNode",
         "title": "Relocate Node",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.debugGraphState",
         "title": "Debug Graph State",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.previewGraphFile",
         "title": "预览 CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
       },
       {
         "command": "codepath.shareGraphFile",
         "title": "分享 CodePath",
-        "category": "CodePath"
+        "category": "Code Path Marker"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "codepath.submenu",
+        "label": "Code Path"
       }
     ],
     "menus": {
-      "explorer/context": [
-        {
-          "command": "codepath.previewGraphFile",
-          "when": "resourcePath =~ /\\.codepath.*\\.json$/",
-          "group": "codepath@1"
-        },
-        {
-          "command": "codepath.shareGraphFile",
-          "when": "resourcePath =~ /\\.codepath.*\\.json$/",
-          "group": "codepath@2"
-        }
-      ],
       "editor/context": [
         {
+          "submenu": "codepath.submenu",
+          "when": "true",
+          "group": "navigation@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "submenu": "codepath.submenu",
+          "when": "true",
+          "group": "navigation@1"
+        }
+      ],
+      "codepath.submenu": [
+        {
           "command": "codepath.createNode",
-          "when": "editorHasSelection",
-          "group": "codepath"
+          "when": "editorHasSelection || explorerResourceIsFile || explorerResourceIsFolder",
+          "group": "1_create@1"
         },
         {
           "command": "codepath.createChildNode",
           "when": "codepath.hasCurrentNode",
-          "group": "codepath"
+          "group": "1_create@2"
         },
         {
           "command": "codepath.createParentNode",
           "when": "codepath.hasCurrentNode",
-          "group": "codepath"
+          "group": "1_create@3"
+        },
+        {
+          "command": "codepath.createBroNode",
+          "when": "codepath.hasCurrentNode && (editorHasSelection || explorerResourceIsFile || explorerResourceIsFolder)",
+          "group": "1_create@4"
+        },
+        {
+          "command": "codepath.copyNode",
+          "when": "codepath.hasCurrentNode",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "codepath.pasteNode",
+          "when": "codepath.hasClipboardNode",
+          "group": "2_edit@2"
+        },
+        {
+          "command": "codepath.cutNode",
+          "when": "codepath.hasCurrentNode",
+          "group": "2_edit@3"
+        },
+        {
+          "command": "codepath.moveNodeUp",
+          "when": "codepath.hasCurrentNode",
+          "group": "3_order@1"
+        },
+        {
+          "command": "codepath.moveNodeDown",
+          "when": "codepath.hasCurrentNode",
+          "group": "3_order@2"
+        },
+        {
+          "command": "codepath.previewGraphFile",
+          "when": "resourcePath =~ /\\.codepath.*\\.json$/",
+          "group": "4_file@1"
+        },
+        {
+          "command": "codepath.shareGraphFile",
+          "when": "resourcePath =~ /\\.codepath.*\\.json$/",
+          "group": "4_file@2"
         }
       ]
     },
@@ -199,6 +277,10 @@
       {
         "command": "codepath.togglePreviewFormat",
         "key": "ctrl+shift+t"
+      },
+      {
+        "command": "codepath.createBroNode",
+        "key": "ctrl+alt+b"
       }
     ],
     "configuration": {

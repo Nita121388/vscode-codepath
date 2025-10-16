@@ -1,4 +1,4 @@
-# CodePath - Visual Code Execution Path Tracker
+# Code Path Marker - Visual Code Execution Path Marker
 
 <div align="center">
 
@@ -14,13 +14,13 @@
 
 ## English
 
-CodePath is a VS Code extension that helps developers visualize and track code execution paths through interactive node-based graphs. Create, manage, and navigate through your code flow using both text and visual diagram representations.
+Code Path Marker is a VS Code extension that helps developers visualize and mark code execution paths through interactive node-based graphs. Create, manage, and navigate through your code flow using both text and visual diagram representations.
 
 ### 🚀 Quick Start
 
-1. **Install**: Search for "CodePath" in VS Code Extensions
+1. **Install**: Search for "Code Path Marker" in VS Code Extensions
 2. **Select Code**: Highlight any code in your editor
-3. **Right-click**: Choose "New Node" from context menu
+3. **Right-click**: Choose "Code Path" → "Mark as New Node" from context menu
 4. **Build Path**: Add child/parent nodes to create execution flow
 5. **Visualize**: View your code path in text or diagram format
 
@@ -35,7 +35,7 @@ CodePath is a VS Code extension that helps developers visualize and track code e
 
 ### ⚡ Key Features
 
-- **Interactive Node Creation** from selected code with right-click menu
+- **Interactive Node Marking** from selected code with unified "Code Path" submenu
 - **Dual Visualization** (Text + Mermaid diagrams) with instant switching
 - **Multiple Graph Management** with quick status bar menu
 - **Smart Navigation** with fuzzy matching and location tracking
@@ -43,7 +43,8 @@ CodePath is a VS Code extension that helps developers visualize and track code e
 - **Tree Fork Support** - Track multiple execution paths for the same code
 - **Export/Import** for team collaboration with auto-switch
 - **Node Editing** with real-time validation and preview update
-- **File Explorer Integration** - Preview and share graphs directly from files
+- **File Explorer Integration** - Mark files/folders as nodes, preview and share graphs
+- **Node Operations** - Copy, paste, cut, move up/down with custom preview menu
 - **Cross-platform** compatibility
 
 ### 🎯 Use Cases
@@ -59,13 +60,13 @@ CodePath is a VS Code extension that helps developers visualize and track code e
 
 ## 中文
 
-CodePath 是一个 VS Code 扩展，帮助开发者通过交互式节点图表可视化和追踪代码执行路径。支持创建、管理和导航代码流程，提供文本和可视化图表两种展示方式。
+Code Path Marker 是一个 VS Code 扩展，帮助开发者通过交互式节点图表可视化和标记代码执行路径。支持创建、管理和导航代码流程，提供文本和可视化图表两种展示方式。
 
 ### 🚀 快速开始
 
-1. **安装**: 在 VS Code 扩展中搜索 "CodePath"
+1. **安装**: 在 VS Code 扩展中搜索 "Code Path Marker"
 2. **选择代码**: 在编辑器中高亮任意代码
-3. **右键点击**: 从上下文菜单选择 "New Node"
+3. **右键点击**: 从"Code Path"子菜单选择 "Mark as New Node"
 4. **构建路径**: 添加子/父节点创建执行流程
 5. **可视化**: 以文本或图表格式查看代码路径
 
@@ -80,7 +81,7 @@ CodePath 是一个 VS Code 扩展，帮助开发者通过交互式节点图表�
 
 ### ⚡ 核心功能
 
-- **交互式节点创建** - 右键菜单快速创建节点
+- **交互式节点标记** - 统一"Code Path"子菜单快速标记节点
 - **双重可视化** - 文本 + Mermaid 图表即时切换
 - **多图表管理** - 状态栏快捷菜单快速访问
 - **智能导航** - 模糊匹配和位置追踪
@@ -88,7 +89,8 @@ CodePath 是一个 VS Code 扩展，帮助开发者通过交互式节点图表�
 - **树分叉支持** - 追踪同一代码的多条执行路径
 - **导出/导入** - 团队协作分享，自动切换
 - **节点编辑** - 实时验证和预览更新
-- **文件浏览器集成** - 直接预览和分享图表文件
+- **文件浏览器集成** - 标记文件/文件夹为节点，直接预览和分享图表文件
+- **节点操作** - 复制、粘贴、剪切、上移、下移，自定义预览菜单
 - **跨平台** - 全平台兼容
 
 ### 🎯 使用场景

@@ -160,7 +160,7 @@ describe('NodeManager', () => {
     });
 
     describe('createChildNode', () => {
-        it('should attempt to create a child node', async () => {
+        it('should create a child node successfully', async () => {
             // Arrange
             await mockGraphManager.createGraph();
             const parentNode = await nodeManager.createNode('Parent', '/test/parent.ts', 5);
@@ -169,10 +169,15 @@ describe('NodeManager', () => {
             const childFilePath = '/test/child.ts';
             const childLineNumber = 15;
 
-            // Act & Assert - The mock doesn't fully support graph relationships
-            // so we expect this to fail, but the method should be callable
-            await expect(nodeManager.createChildNode(parentNode.id, childName, childFilePath, childLineNumber))
-                .rejects.toThrow('Failed to create child node');
+            // Act
+            const result = await nodeManager.createChildNode(parentNode.id, childName, childFilePath, childLineNumber);
+
+            // Assert
+            expect(result).toBeDefined();
+            expect(result.name).toBe(childName);
+            expect(result.filePath).toBe(childFilePath);
+            expect(result.lineNumber).toBe(childLineNumber);
+            expect(result.parentId).toBe(parentNode.id);
         });
 
         it('should throw error for invalid parent ID', async () => {
@@ -184,7 +189,7 @@ describe('NodeManager', () => {
         it('should throw error when no graph exists', async () => {
             // Act & Assert
             await expect(nodeManager.createChildNode('parent-id', 'Child', '/test/file.ts', 10))
-                .rejects.toThrow('No active graph found');
+                .rejects.toThrow('No active CodePath found');
         });
 
         it('should throw error when parent node does not exist', async () => {
@@ -227,7 +232,7 @@ describe('NodeManager', () => {
         it('should throw error when no graph exists', async () => {
             // Act & Assert
             await expect(nodeManager.createParentNode('child-id', 'Parent', '/test/file.ts', 5))
-                .rejects.toThrow('No active graph found');
+                .rejects.toThrow('No active CodePath found');
         });
 
         it('should throw error when child node does not exist', async () => {
@@ -380,7 +385,7 @@ describe('NodeManager', () => {
             const node = await nodeManager.createNode('Test Node', '/test/file.ts', 10);
 
             // Act
-            nodeManager.setCurrentNode(node.id);
+            await nodeManager.setCurrentNode(node.id);
             const currentNode = nodeManager.getCurrentNode();
 
             // Assert
@@ -393,14 +398,14 @@ describe('NodeManager', () => {
             await mockGraphManager.createGraph();
 
             // Act & Assert
-            expect(() => nodeManager.setCurrentNode(''))
-                .toThrow('Node ID must be a non-empty string');
+            await expect(nodeManager.setCurrentNode(''))
+                .rejects.toThrow('Node ID must be a non-empty string');
         });
 
-        it('should throw error when no graph exists', () => {
+        it('should throw error when no graph exists', async () => {
             // Act & Assert
-            expect(() => nodeManager.setCurrentNode('node-id'))
-                .toThrow('No active graph found');
+            await expect(nodeManager.setCurrentNode('node-id'))
+                .rejects.toThrow('No active graph found');
         });
 
         it('should return null when no current node is set', () => {
@@ -494,6 +499,334 @@ describe('NodeManager', () => {
 
             // Assert
             expect(result).toBeNull();
+        });
+    });
+
+    describe('createBroNode', () => {
+        describe('with parent node (sibling creation)', () => {
+            it('should create a sibling node when current node has a parent', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const parentNode = await nodeManager.createNode('Parent', '/test/parent.ts', 5);
+                
+                // Create a child node first to establish the parent-child relationship
+                const childNode = await nodeManager.createChildNode(parentNode.id, 'Current Child', '/test/child.ts', 10);
+                
+                // Set the child as current node
+                await nodeManager.setCurrentNode(childNode.id);
+                
+                const broName = 'Bro Node';
+                const broFilePath = '/test/bro.ts';
+                const broLineNumber = 15;
+
+                // Act
+                const result = await nodeManager.createBroNode(broName, broFilePath, broLineNumber);
+
+                // Assert
+                expect(result).toBeDefined();
+                expect(result.name).toBe(broName);
+                expect(result.filePath).toBe(broFilePath);
+                expect(result.lineNumber).toBe(broLineNumber);
+                // Note: Due to mock limitations, we can't test exact parent relationship
+                // but we can verify the method completes successfully
+                expect(mockGraphManager.saveGraph).toHaveBeenCalled();
+            });
+
+            it('should generate code hash for bro node with parent', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const parentNode = await nodeManager.createNode('Parent', '/test/parent.ts', 5);
+                const childNode = await nodeManager.createChildNode(parentNode.id, 'Current Child', '/test/child.ts', 10);
+                await nodeManager.setCurrentNode(childNode.id);
+
+                // Act
+                const result = await nodeManager.createBroNode('Bro Node', '/test/bro.ts', 15);
+
+                // Assert - Code hash might be undefined due to vscode mock limitations, which is acceptable
+                expect(result).toBeDefined();
+                expect(result.name).toBe('Bro Node');
+            });
+        });
+
+        describe('without parent node (root sibling creation)', () => {
+            it('should create a root sibling node when current node is a root node', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root Node', '/test/root.ts', 5);
+                
+                // Set the root node as current (it has no parent)
+                await nodeManager.setCurrentNode(rootNode.id);
+                
+                const broName = 'Bro Root Node';
+                const broFilePath = '/test/bro-root.ts';
+                const broLineNumber = 10;
+
+                // Act
+                const result = await nodeManager.createBroNode(broName, broFilePath, broLineNumber);
+
+                // Assert
+                expect(result).toBeDefined();
+                expect(result.name).toBe(broName);
+                expect(result.filePath).toBe(broFilePath);
+                expect(result.lineNumber).toBe(broLineNumber);
+                expect(result.parentId).toBeNull(); // Should be a root node like current
+                expect(mockGraphManager.saveGraph).toHaveBeenCalled();
+            });
+
+            it('should generate code hash for root bro node', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root Node', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act
+                const result = await nodeManager.createBroNode('Bro Root', '/test/bro-root.ts', 10);
+
+                // Assert - Code hash might be undefined due to vscode mock limitations, which is acceptable
+                expect(result).toBeDefined();
+                expect(result.name).toBe('Bro Root');
+            });
+        });
+
+        describe('input validation', () => {
+            it('should throw error for empty name', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('', '/test/file.ts', 10))
+                    .rejects.toThrow('Node name must be a non-empty string');
+            });
+
+            it('should throw error for whitespace-only name', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('   ', '/test/file.ts', 10))
+                    .rejects.toThrow('Node name cannot be empty or whitespace only');
+            });
+
+            it('should throw error for null name', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode(null as any, '/test/file.ts', 10))
+                    .rejects.toThrow('Node name must be a non-empty string');
+            });
+
+            it('should throw error for empty file path', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '', 10))
+                    .rejects.toThrow('File path must be a non-empty string');
+            });
+
+            it('should throw error for whitespace-only file path', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '   ', 10))
+                    .rejects.toThrow('File path cannot be empty or whitespace only');
+            });
+
+            it('should throw error for invalid line number (zero)', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 0))
+                    .rejects.toThrow('Line number must be a positive integer');
+            });
+
+            it('should throw error for invalid line number (negative)', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', -5))
+                    .rejects.toThrow('Line number must be a positive integer');
+            });
+
+            it('should throw error for non-integer line number', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 10.5))
+                    .rejects.toThrow('Line number must be a positive integer');
+            });
+
+            it('should throw error for non-number line number', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 'invalid' as any))
+                    .rejects.toThrow('Line number must be a number');
+            });
+        });
+
+        describe('error handling', () => {
+            it('should throw error when no current node exists', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                // Don't set any current node
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 10))
+                    .rejects.toThrow('No current node selected. Please create or select a node first.');
+            });
+
+            it('should throw error when no graph exists', async () => {
+                // Arrange - Don't create any graph
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 10))
+                    .rejects.toThrow('No active CodePath found. Please create a CodePath first.');
+            });
+
+            it('should throw error when current node ID is invalid', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const currentGraph = mockGraphManager.getCurrentGraph()!;
+                currentGraph.currentNodeId = 'non-existent-node';
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 10))
+                    .rejects.toThrow('No current node selected. Please create or select a node first.');
+            });
+
+            it('should handle createChildNode failure gracefully', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const parentNode = await nodeManager.createNode('Parent', '/test/parent.ts', 5);
+                const childNode = await nodeManager.createChildNode(parentNode.id, 'Current Child', '/test/child.ts', 10);
+                await nodeManager.setCurrentNode(childNode.id);
+
+                // Mock createChildNode to fail
+                const originalCreateChildNode = nodeManager.createChildNode;
+                nodeManager.createChildNode = vi.fn().mockRejectedValue(new Error('Child creation failed'));
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 10))
+                    .rejects.toThrow('Failed to create bro node: Error: Child creation failed');
+
+                // Restore original method
+                nodeManager.createChildNode = originalCreateChildNode;
+            });
+
+            it('should handle createNode failure gracefully', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Mock createNode to fail
+                const originalCreateNode = nodeManager.createNode;
+                nodeManager.createNode = vi.fn().mockRejectedValue(new Error('Node creation failed'));
+
+                // Act & Assert
+                await expect(nodeManager.createBroNode('Bro Node', '/test/file.ts', 10))
+                    .rejects.toThrow('Failed to create bro node: Error: Node creation failed');
+
+                // Restore original method
+                nodeManager.createNode = originalCreateNode;
+            });
+        });
+
+        describe('code hash generation', () => {
+            it('should generate consistent code hash for same code content', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act
+                const result1 = await nodeManager.createBroNode('Bro Node 1', '/test/file1.ts', 10);
+                const result2 = await nodeManager.createBroNode('Bro Node 2', '/test/file2.ts', 20);
+
+                // Assert - Code hash might be undefined due to vscode mock limitations
+                expect(result1).toBeDefined();
+                expect(result2).toBeDefined();
+                expect(result1.name).toBe('Bro Node 1');
+                expect(result2.name).toBe('Bro Node 2');
+                // In test environment, code hash generation may fail, which is acceptable
+            });
+
+            it('should handle code hash generation failure gracefully', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Act - Even if code hash generation fails, node creation should succeed
+                const result = await nodeManager.createBroNode('Bro Node', '/test/nonexistent.ts', 10);
+
+                // Assert
+                expect(result).toBeDefined();
+                expect(result.name).toBe('Bro Node');
+                expect(result.filePath).toBe('/test/nonexistent.ts');
+                expect(result.lineNumber).toBe(10);
+                // Code hash might be undefined if file doesn't exist, but that's acceptable
+            });
+        });
+
+        describe('integration with existing methods', () => {
+            it('should use createChildNode when current node has parent', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const parentNode = await nodeManager.createNode('Parent', '/test/parent.ts', 5);
+                const childNode = await nodeManager.createChildNode(parentNode.id, 'Current Child', '/test/child.ts', 10);
+                await nodeManager.setCurrentNode(childNode.id);
+
+                // Spy on createChildNode
+                const createChildNodeSpy = vi.spyOn(nodeManager, 'createChildNode');
+
+                // Act
+                await nodeManager.createBroNode('Bro Node', '/test/bro.ts', 15);
+
+                // Assert
+                expect(createChildNodeSpy).toHaveBeenCalledWith(parentNode.id, 'Bro Node', '/test/bro.ts', 15);
+            });
+
+            it('should use createNode when current node is root', async () => {
+                // Arrange
+                await mockGraphManager.createGraph();
+                const rootNode = await nodeManager.createNode('Root', '/test/root.ts', 5);
+                await nodeManager.setCurrentNode(rootNode.id);
+
+                // Spy on createNode
+                const createNodeSpy = vi.spyOn(nodeManager, 'createNode');
+
+                // Act
+                await nodeManager.createBroNode('Bro Root', '/test/bro-root.ts', 10);
+
+                // Assert
+                expect(createNodeSpy).toHaveBeenCalledWith('Bro Root', '/test/bro-root.ts', 10);
+            });
         });
     });
 

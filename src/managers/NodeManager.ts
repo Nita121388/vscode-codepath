@@ -275,6 +275,57 @@ export class NodeManager implements INodeManager {
     }
 
     /**
+     * Creates a sibling node (bro node) at the same level as the current node
+     * 
+     * This method implements the core logic for creating "brother" or sibling nodes:
+     * - If current node has a parent, the new node becomes a child of that parent (true sibling)
+     * - If current node is a root node, the new node becomes a new root node (root-level sibling)
+     * 
+     * The method automatically determines the correct relationship based on the current node's
+     * position in the graph hierarchy and delegates to the appropriate creation method.
+     * 
+     * @param name - The name/title for the new sibling node
+     * @param filePath - The file path where the code is located
+     * @param lineNumber - The line number in the file (1-based)
+     * @returns Promise<Node> - The newly created sibling node
+     * @throws Error if validation fails, no graph exists, or no current node is selected
+     */
+    public async createBroNode(name: string, filePath: string, lineNumber: number): Promise<Node> {
+        try {
+            // Validate input parameters using existing validation logic
+            this.validateNodeInput(name, filePath, lineNumber);
+
+            // Ensure we have an active graph to work with
+            const currentGraph = this.graphManager.getCurrentGraph();
+            if (!currentGraph) {
+                throw new Error('No active CodePath found. Please create a CodePath first.');
+            }
+
+            // Get the current node to determine sibling relationship
+            const currentNode = this.getCurrentNode();
+            if (!currentNode) {
+                throw new Error('No current node selected. Please create or select a node first.');
+            }
+
+            // Determine sibling creation strategy based on current node's parent relationship
+            if (currentNode.parentId) {
+                // Case 1: Current node has a parent
+                // Create a new child of the same parent (true sibling relationship)
+                console.log(`[NodeManager] Creating bro node as child of parent: ${currentNode.parentId}`);
+                return await this.createChildNode(currentNode.parentId, name, filePath, lineNumber);
+            } else {
+                // Case 2: Current node is a root node (no parent)
+                // Create a new root node at the same level (root-level sibling)
+                console.log('[NodeManager] Creating bro node as new root node');
+                return await this.createNode(name, filePath, lineNumber);
+            }
+        } catch (error) {
+            // Wrap and re-throw with context for better error reporting
+            throw new Error(`Failed to create bro node: ${error}`);
+        }
+    }
+
+    /**
      * Deletes a node and handles relationship cleanup
      */
     public async deleteNode(nodeId: string): Promise<void> {
@@ -426,6 +477,41 @@ export class NodeManager implements INodeManager {
                 // Convert null to undefined
                 node.validationWarning = updates.validationWarning === null ? undefined : updates.validationWarning;
             }
+            if ('childIds' in updates) {
+                console.log(`[NodeManager] 正在更新节点 ${nodeId} 的 childIds 顺序`);
+
+                const newChildIds = updates.childIds;
+                if (!Array.isArray(newChildIds)) {
+                    throw new Error('childIds 必须以数组形式提供');
+                }
+
+                // 校验每个子节点 ID
+                const seenIds = new Set<string>();
+                for (const childId of newChildIds) {
+                    if (typeof childId !== 'string' || childId.trim().length === 0) {
+                        throw new Error('childIds 数组必须仅包含非空字符串');
+                    }
+                    if (!graphModel.nodes.has(childId)) {
+                        throw new Error(`子节点 ${childId} 不存在于当前图中`);
+                    }
+                    if (seenIds.has(childId)) {
+                        throw new Error(`childIds 数组包含重复子节点 ID: ${childId}`);
+                    }
+                    seenIds.add(childId);
+                }
+
+                // 确保仅调整顺序，而不是增删子节点
+                const originalChildSet = new Set(node.childIds);
+                const missingChildren = node.childIds.filter(id => !seenIds.has(id));
+                const unexpectedChildren = newChildIds.filter(id => !originalChildSet.has(id));
+
+                if (missingChildren.length > 0 || unexpectedChildren.length > 0) {
+                    throw new Error('childIds 更新必须保持原有子节点集合，仅允许调整顺序');
+                }
+
+                node.childIds = [...newChildIds];
+                console.log('[NodeManager] childIds 已更新为:', JSON.stringify(node.childIds));
+            }
             if ('description' in updates) {
                 console.log('[NodeManager] Updating description to:', updates.description);
                 // Convert null to undefined
@@ -433,11 +519,17 @@ export class NodeManager implements INodeManager {
                 console.log('[NodeManager] Node description after update:', node.description);
             }
 
-            // Note: We don't allow updating id, createdAt, parentId, or childIds through this method
-            // as they require special handling through other methods
+            // 注意：我们仍然不支持通过此方法直接修改 id、createdAt 或 parentId，这些字段需要专门入口
 
             // Save updated graph
             await this.graphManager.saveGraph(graphModel.toJSON());
+
+            // 打印保存后的最新节点顺序，便于定位顺序未更新的问题
+            if ('childIds' in updates) {
+                const latestGraph = this.graphManager.getCurrentGraph();
+                const latestNode = latestGraph?.nodes.get(nodeId);
+                console.log('[NodeManager] 保存后 childIds:', latestNode ? JSON.stringify(latestNode.childIds) : '节点不存在');
+            }
         } catch (error) {
             throw new Error(`Failed to update node: ${error}`);
         }

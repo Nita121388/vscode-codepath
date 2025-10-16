@@ -46,13 +46,23 @@ export class LocationTracker {
             // Check if file exists
             const fileUri = vscode.Uri.file(node.filePath);
             
+            let fileStat: vscode.FileStat | null = null;
             try {
-                await vscode.workspace.fs.stat(fileUri);
+                fileStat = await vscode.workspace.fs.stat(fileUri);
             } catch {
                 return {
                     isValid: false,
                     confidence: 'failed',
                     reason: 'File not found'
+                };
+            }
+
+            // 如果目标是目录，则视为有效（目录节点无需代码校验）
+            if (fileStat && (fileStat.type & vscode.FileType.Directory) !== 0) {
+                console.log(`[LocationTracker] validateLocation: ${node.filePath} is a directory, skipping content validation`);
+                return {
+                    isValid: true,
+                    confidence: 'exact'
                 };
             }
 
@@ -138,6 +148,20 @@ export class LocationTracker {
                             lineNumber: searchResult.lineNumber
                         },
                         reason: `Code found at line ${searchResult.lineNumber} (moved ${Math.abs(searchResult.lineNumber - node.lineNumber)} lines)`
+                    };
+                }
+
+                // Try whitespace-insensitive multi-line search
+                const whitespaceResult = this.searchAcrossLinesNormalized(document, node.codeSnippet);
+                if (whitespaceResult) {
+                    return {
+                        isValid: false,
+                        confidence: whitespaceResult.confidence,
+                        suggestedLocation: {
+                            filePath: node.filePath,
+                            lineNumber: whitespaceResult.lineNumber
+                        },
+                        reason: `Code found at line ${whitespaceResult.lineNumber} (whitespace-insensitive match)`
                     };
                 }
 
@@ -368,6 +392,88 @@ export class LocationTracker {
     }
 
     /**
+     * Searches for snippet across multiple lines using whitespace-insensitive comparison
+     */
+    private searchAcrossLinesNormalized(
+        document: vscode.TextDocument,
+        codeSnippet: string,
+        maxSpan: number = 8
+    ): { lineNumber: number; confidence: 'high' | 'medium' | 'low' } | null {
+        const target = this.normalizeForComparison(codeSnippet);
+        if (!target) {
+            return null;
+        }
+
+        const normalizedLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) {
+            normalizedLines.push(this.normalizeForComparison(document.lineAt(i).text));
+        }
+
+        for (let start = 0; start < normalizedLines.length; start++) {
+            let combined = '';
+            const offsets: number[] = [];
+            const lengths: number[] = [];
+
+            for (let end = start; end < Math.min(normalizedLines.length, start + maxSpan); end++) {
+                offsets.push(combined.length);
+                const lineNormalized = normalizedLines[end];
+                lengths.push(lineNormalized.length);
+                combined += lineNormalized;
+
+                if (combined.length < target.length) {
+                    continue;
+                }
+
+                const matchIndex = combined.indexOf(target);
+                if (matchIndex !== -1) {
+                    // Determine which line contains the start of the match
+                    let matchLine = start;
+                    for (let relative = 0; relative < offsets.length; relative++) {
+                        const segmentStart = offsets[relative];
+                        const segmentEnd = segmentStart + lengths[relative];
+                        if (matchIndex >= segmentStart && matchIndex < segmentEnd) {
+                            matchLine = start + relative;
+                            break;
+                        }
+                    }
+
+                    const spanLines = end - start;
+                    let confidence: 'high' | 'medium' | 'low';
+                    if (spanLines === 0) {
+                        confidence = 'high';
+                    } else if (spanLines <= 2) {
+                        confidence = 'medium';
+                    } else {
+                        confidence = 'low';
+                    }
+
+                    return {
+                        lineNumber: matchLine + 1,
+                        confidence
+                    };
+                }
+
+                // If combined string is significantly longer than target, break to avoid unnecessary work
+                if (combined.length > target.length * 2) {
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalizes code snippet for whitespace-insensitive comparison
+     */
+    private normalizeForComparison(text: string): string {
+        if (!text) {
+            return '';
+        }
+        return text.replace(/\s+/g, '').toLowerCase();
+    }
+
+    /**
      * Attempts to navigate to a node with intelligent fallback
      */
     public async navigateToNode(node: Node): Promise<{
@@ -434,6 +540,18 @@ export class LocationTracker {
      */
     private async performNavigation(filePath: string, lineNumber: number): Promise<void> {
         const uri = vscode.Uri.file(filePath);
+
+        try {
+            const stat = await vscode.workspace.fs.stat(uri);
+            if ((stat.type & vscode.FileType.Directory) !== 0) {
+                console.log(`[LocationTracker] performNavigation: ${filePath} is a directory, revealing in explorer`);
+                await vscode.commands.executeCommand('revealInExplorer', uri);
+                return;
+            }
+        } catch (error) {
+            console.warn('[LocationTracker] performNavigation: stat failed, attempting to open directly', error);
+        }
+
         const document = await vscode.workspace.openTextDocument(uri);
         const editor = await vscode.window.showTextDocument(document, {
             viewColumn: vscode.ViewColumn.One,

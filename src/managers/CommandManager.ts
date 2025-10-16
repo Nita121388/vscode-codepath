@@ -2,6 +2,19 @@ import * as vscode from 'vscode';
 import { GraphManager } from './GraphManager';
 import { NodeManager } from './NodeManager';
 import { IntegrationManager } from './IntegrationManager';
+import { ClipboardManager } from './ClipboardManager';
+import { NodeOrderManager } from './NodeOrderManager';
+import { FeedbackManager } from './FeedbackManager';
+import { CodePathError } from '../types/errors';
+
+/**
+ * Context information for creating nodes
+ */
+interface CreationContext {
+    name: string;
+    filePath: string;
+    lineNumber: number;
+}
 
 /**
  * Manages VS Code command integration and context menu functionality
@@ -10,6 +23,9 @@ export class CommandManager {
     private graphManager: GraphManager;
     private nodeManager: NodeManager;
     private integrationManager: IntegrationManager;
+    private clipboardManager: ClipboardManager;
+    private nodeOrderManager: NodeOrderManager;
+    private feedbackManager: FeedbackManager;
     private disposables: vscode.Disposable[] = [];
 
     constructor(
@@ -20,16 +36,37 @@ export class CommandManager {
         this.graphManager = graphManager;
         this.nodeManager = nodeManager;
         this.integrationManager = integrationManager;
+        this.clipboardManager = new ClipboardManager(nodeManager, graphManager);
+        this.nodeOrderManager = new NodeOrderManager(nodeManager, graphManager);
+        this.feedbackManager = new FeedbackManager();
     }
 
     /**
      * Register all VS Code commands and context menu handlers
      */
     public registerCommands(context: vscode.ExtensionContext): void {
-        // Register command handlers
+        // Register existing command handlers (keeping old command IDs for compatibility)
         this.registerCommand(context, 'codepath.createNode', this.handleCreateNode.bind(this));
         this.registerCommand(context, 'codepath.createChildNode', this.handleCreateChildNode.bind(this));
         this.registerCommand(context, 'codepath.createParentNode', this.handleCreateParentNode.bind(this));
+        this.registerCommand(context, 'codepath.createBroNode', this.handleCreateBroNode.bind(this));
+        
+        // Register new "Mark as" command handlers
+        this.registerCommand(context, 'codepath.markAsNewNode', this.handleMarkAsNewNode.bind(this));
+        this.registerCommand(context, 'codepath.markAsChildNode', this.handleMarkAsChildNode.bind(this));
+        this.registerCommand(context, 'codepath.markAsParentNode', this.handleMarkAsParentNode.bind(this));
+        this.registerCommand(context, 'codepath.markAsBroNode', this.handleMarkAsBroNode.bind(this));
+        
+        // Register clipboard operation commands
+        this.registerCommand(context, 'codepath.copyNode', this.handleCopyNode.bind(this));
+        this.registerCommand(context, 'codepath.pasteNode', this.handlePasteNode.bind(this));
+        this.registerCommand(context, 'codepath.cutNode', this.handleCutNode.bind(this));
+        
+        // Register node order commands
+        this.registerCommand(context, 'codepath.moveNodeUp', this.handleMoveNodeUp.bind(this));
+        this.registerCommand(context, 'codepath.moveNodeDown', this.handleMoveNodeDown.bind(this));
+        
+        // Register other existing commands
         this.registerCommand(context, 'codepath.switchCurrentNode', this.handleSwitchCurrentNode.bind(this));
         this.registerCommand(context, 'codepath.deleteCurrentNode', this.handleDeleteCurrentNode.bind(this));
         this.registerCommand(context, 'codepath.deleteCurrentNodeWithChildren', this.handleDeleteCurrentNodeWithChildren.bind(this));
@@ -67,26 +104,10 @@ export class CommandManager {
     /**
      * Handle creating a new node from selected text
      */
-    private async handleCreateNode(): Promise<void> {
+    private async handleCreateNode(uri?: vscode.Uri): Promise<void> {
         try {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('No active editor found');
-                return;
-            }
-
-            const selection = editor.selection;
-            if (selection.isEmpty) {
-                vscode.window.showErrorMessage('Please select code text first');
-                return;
-            }
-
-            const selectedText = editor.document.getText(selection);
-            const filePath = editor.document.uri.fsPath;
-            const lineNumber = selection.start.line + 1; // VS Code uses 0-based line numbers
-
-            // Use integration manager for complete workflow
-            await this.integrationManager.createNodeWorkflow(selectedText, filePath, lineNumber);
+            const context = await this.getCreationContext(uri);
+            await this.integrationManager.createNodeWorkflow(context.name, context.filePath, context.lineNumber);
         } catch (error) {
             // Error handling is done in IntegrationManager
             console.error('Create node command failed:', error);
@@ -96,26 +117,10 @@ export class CommandManager {
     /**
      * Handle creating a child node
      */
-    private async handleCreateChildNode(): Promise<void> {
+    private async handleCreateChildNode(uri?: vscode.Uri): Promise<void> {
         try {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('No active editor found');
-                return;
-            }
-
-            const selection = editor.selection;
-            if (selection.isEmpty) {
-                vscode.window.showErrorMessage('Please select code text first');
-                return;
-            }
-
-            const selectedText = editor.document.getText(selection);
-            const filePath = editor.document.uri.fsPath;
-            const lineNumber = selection.start.line + 1;
-
-            // Use integration manager for complete workflow
-            await this.integrationManager.createChildNodeWorkflow(selectedText, filePath, lineNumber);
+            const context = await this.getCreationContext(uri);
+            await this.integrationManager.createChildNodeWorkflow(context.name, context.filePath, context.lineNumber);
         } catch (error) {
             // Error handling is done in IntegrationManager
             console.error('Create child node command failed:', error);
@@ -125,29 +130,186 @@ export class CommandManager {
     /**
      * Handle creating a parent node
      */
-    private async handleCreateParentNode(): Promise<void> {
+    private async handleCreateParentNode(uri?: vscode.Uri): Promise<void> {
         try {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('No active editor found');
-                return;
-            }
-
-            const selection = editor.selection;
-            if (selection.isEmpty) {
-                vscode.window.showErrorMessage('Please select code text first');
-                return;
-            }
-
-            const selectedText = editor.document.getText(selection);
-            const filePath = editor.document.uri.fsPath;
-            const lineNumber = selection.start.line + 1;
-
-            // Use integration manager for complete workflow
-            await this.integrationManager.createParentNodeWorkflow(selectedText, filePath, lineNumber);
+            const context = await this.getCreationContext(uri);
+            await this.integrationManager.createParentNodeWorkflow(context.name, context.filePath, context.lineNumber);
         } catch (error) {
             // Error handling is done in IntegrationManager
             console.error('Create parent node command failed:', error);
+        }
+    }
+
+    /**
+     * Handle creating a bro node (sibling node)
+     */
+    private async handleCreateBroNode(uri?: vscode.Uri): Promise<void> {
+        try {
+            const context = await this.getCreationContext(uri);
+            await this.integrationManager.createBroNodeWorkflow(context.name, context.filePath, context.lineNumber);
+        } catch (error) {
+            // Error handling is done in IntegrationManager
+            console.error('Create bro node command failed:', error);
+        }
+    }
+
+    /**
+     * Handle marking as new node (updated naming)
+     */
+    private async handleMarkAsNewNode(uri?: vscode.Uri): Promise<void> {
+        try {
+            const context = await this.getCreationContext(uri);
+            const node = await this.integrationManager.createNodeWorkflow(
+                context.name, context.filePath, context.lineNumber
+            );
+            this.showSuccess(`已标记为新节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
+        } catch (error) {
+            this.handleError('标记为新节点失败', error);
+        }
+    }
+
+    /**
+     * Handle marking as child node (updated naming)
+     */
+    private async handleMarkAsChildNode(uri?: vscode.Uri): Promise<void> {
+        try {
+            const context = await this.getCreationContext(uri);
+            const node = await this.integrationManager.createChildNodeWorkflow(
+                context.name, context.filePath, context.lineNumber
+            );
+            this.showSuccess(`已标记为子节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
+        } catch (error) {
+            this.handleError('标记为子节点失败', error);
+        }
+    }
+
+    /**
+     * Handle marking as parent node (updated naming)
+     */
+    private async handleMarkAsParentNode(uri?: vscode.Uri): Promise<void> {
+        try {
+            const context = await this.getCreationContext(uri);
+            const node = await this.integrationManager.createParentNodeWorkflow(
+                context.name, context.filePath, context.lineNumber
+            );
+            this.showSuccess(`已标记为父节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
+        } catch (error) {
+            this.handleError('标记为父节点失败', error);
+        }
+    }
+
+    /**
+     * Handle marking as bro node (updated naming)
+     */
+    private async handleMarkAsBroNode(uri?: vscode.Uri): Promise<void> {
+        try {
+            const context = await this.getCreationContext(uri);
+            const node = await this.integrationManager.createBroNodeWorkflow(
+                context.name, context.filePath, context.lineNumber
+            );
+            this.showSuccess(`已标记为兄弟节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
+        } catch (error) {
+            this.handleError('标记为兄弟节点失败', error);
+        }
+    }
+
+    /**
+     * Handle copying current node and its children
+     */
+    private async handleCopyNode(): Promise<void> {
+        try {
+            const currentNode = this.nodeManager.getCurrentNode();
+            if (!currentNode) {
+                throw new Error('没有选择当前节点');
+            }
+
+            await this.clipboardManager.copyNode(currentNode.id);
+            this.showSuccess('已复制该节点及其子节点', `节点: ${currentNode.name}`, '粘贴', () => {
+                vscode.commands.executeCommand('codepath.pasteNode');
+            });
+        } catch (error) {
+            this.handleError('复制节点失败', error);
+        }
+    }
+
+    /**
+     * Handle pasting node from clipboard
+     */
+    private async handlePasteNode(): Promise<void> {
+        try {
+            const currentNode = this.nodeManager.getCurrentNode();
+            const parentId = currentNode?.id;
+
+            const pastedNodes = await this.clipboardManager.pasteNode(parentId);
+            await this.integrationManager.updatePreview();
+
+            const rootNodeCount = pastedNodes.length;
+            this.showSuccess(`已粘贴 ${rootNodeCount} 个节点及其子节点`, `成功粘贴到当前位置`);
+        } catch (error) {
+            this.handleError('粘贴节点失败', error);
+        }
+    }
+
+    /**
+     * Handle cutting current node and its children
+     */
+    private async handleCutNode(): Promise<void> {
+        try {
+            const currentNode = this.nodeManager.getCurrentNode();
+            if (!currentNode) {
+                throw new Error('没有选择当前节点');
+            }
+
+            await this.clipboardManager.cutNode(currentNode.id);
+            this.showSuccess('已剪切该节点及其子节点', `节点: ${currentNode.name}`, '粘贴', () => {
+                vscode.commands.executeCommand('codepath.pasteNode');
+            });
+        } catch (error) {
+            this.handleError('剪切节点失败', error);
+        }
+    }
+
+    /**
+     * Handle moving current node up in sibling order
+     */
+    private async handleMoveNodeUp(): Promise<void> {
+        try {
+            const currentNode = this.nodeManager.getCurrentNode();
+            if (!currentNode) {
+                throw new Error('没有选择当前节点');
+            }
+
+            const moved = await this.nodeOrderManager.moveNodeUp(currentNode.id);
+            if (moved) {
+                await this.integrationManager.updatePreview();
+                this.showSuccess('节点已上移', `节点: ${currentNode.name}`);
+            } else {
+                this.showInfo('节点已在最上方', `节点: ${currentNode.name}`);
+            }
+        } catch (error) {
+            this.handleError('移动节点失败', error);
+        }
+    }
+
+    /**
+     * Handle moving current node down in sibling order
+     */
+    private async handleMoveNodeDown(): Promise<void> {
+        try {
+            const currentNode = this.nodeManager.getCurrentNode();
+            if (!currentNode) {
+                throw new Error('没有选择当前节点');
+            }
+
+            const moved = await this.nodeOrderManager.moveNodeDown(currentNode.id);
+            if (moved) {
+                await this.integrationManager.updatePreview();
+                this.showSuccess('节点已下移', `节点: ${currentNode.name}`);
+            } else {
+                this.showInfo('节点已在最下方', `节点: ${currentNode.name}`);
+            }
+        } catch (error) {
+            this.handleError('移动节点失败', error);
         }
     }
 
@@ -188,7 +350,7 @@ export class CommandManager {
                 }
             }
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to switch node: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.handleError('切换节点', error);
         }
     }
 
@@ -222,11 +384,11 @@ export class CommandManager {
 
             if (confirmation === '删除') {
                 await this.nodeManager.deleteNode(currentGraph.currentNodeId);
-                vscode.window.showInformationMessage(`已删除节点: ${currentNode.name}`);
+                this.showSuccess(`已删除节点: ${currentNode.name}`);
                 await this.integrationManager.updatePreview();
             }
         } catch (error) {
-            vscode.window.showErrorMessage(`删除节点失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.handleError('删除节点', error);
         }
     }
 
@@ -253,8 +415,8 @@ export class CommandManager {
             }
 
             // Count descendants
-            const GraphModel = require('../models/Graph').Graph;
-            const graphModel = GraphModel.fromJSON(currentGraph);
+            const { Graph } = require('../models/Graph');
+            const graphModel = Graph.fromJSON(currentGraph);
             const descendants = graphModel.getDescendants(currentGraph.currentNodeId);
             const totalToDelete = descendants.length + 1;
 
@@ -266,11 +428,11 @@ export class CommandManager {
 
             if (confirmation === '删除') {
                 await this.nodeManager.deleteNodeWithChildren(currentGraph.currentNodeId);
-                vscode.window.showInformationMessage(`已删除 ${totalToDelete} 个节点`);
+                this.showSuccess(`已删除 ${totalToDelete} 个节点`);
                 await this.integrationManager.updatePreview();
             }
         } catch (error) {
-            vscode.window.showErrorMessage(`删除节点失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.handleError('删除节点', error);
         }
     }
 
@@ -292,9 +454,9 @@ export class CommandManager {
     private async handleRefreshPreview(): Promise<void> {
         try {
             await this.integrationManager.updatePreview();
-            vscode.window.showInformationMessage('Preview refreshed');
+            this.showSuccess('预览已刷新');
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to refresh preview: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.handleError('刷新预览', error);
         }
     }
 
@@ -380,7 +542,7 @@ export class CommandManager {
             const exportPath = await vscode.window.showSaveDialog({
                 defaultUri: vscode.Uri.file(`${currentGraph.name}.md`),
                 filters: {
-                    'Markdown': ['md']
+                    'markdown': ['md']
                 }
             });
 
@@ -404,7 +566,7 @@ export class CommandManager {
                 canSelectFolders: false,
                 canSelectMany: false,
                 filters: {
-                    'Markdown': ['md']
+                    'markdown': ['md']
                 }
             });
 
@@ -658,8 +820,8 @@ export class CommandManager {
                 return;
             }
 
-            const GraphModel = require('../models/Graph').Graph;
-            const graphModel = GraphModel.fromJSON(currentGraph);
+            const { Graph } = require('../models/Graph');
+            const graphModel = Graph.fromJSON(currentGraph);
 
             const info = [
                 `Graph ID: ${currentGraph.id}`,
@@ -789,6 +951,267 @@ export class CommandManager {
     }
 
     /**
+     * 获取创建上下文，支持编辑器与资源管理器两种入口
+     */
+    private async getCreationContext(uri?: vscode.Uri): Promise<CreationContext> {
+        const activeEditor = vscode.window.activeTextEditor;
+
+        if (uri && activeEditor && this.areUrisEqual(activeEditor.document.uri, uri)) {
+            const editorContext = await this.getEditorCreationContext(activeEditor);
+            if (editorContext) {
+                return editorContext;
+            }
+        }
+
+        if (uri) {
+            const explorerContext = await this.getExplorerContextFromUri(uri);
+            if (explorerContext) {
+                return explorerContext;
+            }
+        }
+
+        if (!activeEditor) {
+            const explorerContext = await this.getExplorerContext();
+            if (explorerContext) {
+                return explorerContext;
+            }
+            throw new Error('未找到活动编辑器或选中的文件/文件夹');
+        }
+
+        const editorContext = await this.getEditorCreationContext(activeEditor);
+        if (editorContext) {
+            return editorContext;
+        }
+
+        throw new Error('请先选择代码文本或在文件资源管理器中选择文件/文件夹');
+    }
+
+    /**
+     * Get creation context from explorer selection (file/folder context)
+     */
+    private async getExplorerContext(): Promise<CreationContext | null> {
+        try {
+            // Try to get the selected resource from the explorer
+            const selectedResource = await this.getSelectedExplorerResource();
+            
+            if (selectedResource) {
+                return await this.getExplorerContextFromUri(selectedResource);
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Failed to get explorer context:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get creation context from a specific URI (file/folder)
+     */
+    private async getExplorerContextFromUri(uri: vscode.Uri): Promise<CreationContext | null> {
+        try {
+            // Validate that the URI exists and get its stats
+            const stats = await vscode.workspace.fs.stat(uri);
+            const isDirectory = (stats.type & vscode.FileType.Directory) !== 0;
+            
+            // Validate the file system path
+            this.validateFileSystemPath(uri.fsPath);
+            
+            // Get safe node name from path
+            const name = this.getSafeNodeName(uri.fsPath);
+            
+            // For directories, always use line 1 as specified in requirements (9.5)
+            // For files, also use line 1 as default when no editor selection is available
+            const lineNumber = 1;
+            
+            // Use absolute path for consistency with other node creation methods
+            const finalPath = uri.fsPath;
+            
+            // Log the context creation for debugging
+            console.log(`[CommandManager] Created context from ${isDirectory ? 'folder' : 'file'}: ${name} at ${finalPath}:${lineNumber}`);
+            
+            return {
+                name: name,
+                filePath: finalPath,
+                lineNumber: lineNumber
+            };
+        } catch (error) {
+            console.error('Failed to get explorer context from URI:', error);
+            
+            // Handle VS Code file system errors
+            if (error instanceof vscode.FileSystemError) {
+                if (error.code === 'FileNotFound') {
+                    throw new Error('选中的文件或文件夹不存在');
+                } else if (error.code === 'NoPermissions') {
+                    throw new Error('没有权限访问选中的文件或文件夹');
+                }
+            }
+            
+            // Re-throw our custom validation errors
+            if (error instanceof Error && (
+                error.message.includes('无效') || 
+                error.message.includes('过长') || 
+                error.message.includes('字符') ||
+                error.message.includes('保留名称') ||
+                error.message.includes('节点名称')
+            )) {
+                throw error;
+            }
+            
+            throw new Error('无法处理选中的文件或文件夹');
+        }
+    }
+
+    /**
+     * Get the currently selected resource from the explorer
+     */
+    private async getSelectedExplorerResource(): Promise<vscode.Uri | null> {
+        // VS Code doesn't provide a direct API to get the selected explorer resource
+        // when no URI is passed as argument. This is a limitation.
+        
+        // Try to get from the active text editor if it's a file
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor && activeEditor.document.uri.scheme === 'file') {
+            // Validate that the file still exists
+            try {
+                await vscode.workspace.fs.stat(activeEditor.document.uri);
+                return activeEditor.document.uri;
+            } catch (error) {
+                console.warn('Active editor file no longer exists:', activeEditor.document.uri.fsPath);
+                return null;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 判断两个 URI 是否指向同一路径
+     */
+    private areUrisEqual(a: vscode.Uri, b: vscode.Uri): boolean {
+        return a.fsPath === b.fsPath;
+    }
+
+    /**
+     * 从编辑器中推导创建上下文
+     */
+    private async getEditorCreationContext(editor: vscode.TextEditor): Promise<CreationContext | null> {
+        const selection = editor.selection;
+        const selectedText = editor.document.getText(selection);
+
+        if (selectedText && selectedText.trim().length > 0) {
+            return {
+                name: selectedText.trim().substring(0, 50),
+                filePath: editor.document.uri.fsPath,
+                lineNumber: selection.start.line + 1
+            };
+        }
+
+        if (editor.document.uri.scheme === 'file') {
+            try {
+                const fileContext = await this.getExplorerContextFromUri(editor.document.uri);
+                if (fileContext) {
+                    return {
+                        ...fileContext,
+                        lineNumber: selection.start.line + 1
+                    };
+                }
+            } catch (error) {
+                console.warn('无法从编辑器上下文推导文件信息:', error);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate file/folder path for node creation
+     */
+    private validateFileSystemPath(filePath: string): void {
+        // Check path length (Windows has 260 character limit)
+        if (filePath.length > 260) {
+            throw new Error('文件路径过长，请使用较短的路径');
+        }
+        
+        // Check for invalid characters
+        const invalidChars = /[<>"|?*]/;
+        if (invalidChars.test(filePath)) {
+            throw new Error('文件路径包含无效字符');
+        }
+        
+        // Check for reserved names on Windows
+        const reservedNames = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
+        const fileName = filePath.split(/[\\/]/).pop() || '';
+        if (reservedNames.test(fileName)) {
+            throw new Error('文件名为系统保留名称');
+        }
+    }
+
+    /**
+     * Check if a path represents a directory
+     */
+    private async isDirectory(uri: vscode.Uri): Promise<boolean> {
+        try {
+            const stats = await vscode.workspace.fs.stat(uri);
+            return (stats.type & vscode.FileType.Directory) !== 0;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Get a safe node name from file/folder path
+     */
+    private getSafeNodeName(filePath: string): string {
+        const pathParts = filePath.split(/[\\/]/);
+        let name = pathParts[pathParts.length - 1] || '';
+        
+        // Remove file extension for cleaner node names (optional)
+        // name = name.replace(/\.[^/.]+$/, '');
+        
+        // Trim and validate
+        name = name.trim();
+        if (!name) {
+            throw new Error('无法从路径中提取有效的节点名称');
+        }
+        
+        // Limit length for display purposes
+        if (name.length > 50) {
+            name = name.substring(0, 47) + '...';
+        }
+        
+        return name;
+    }
+
+    /**
+     * Handle errors with enhanced feedback and recovery suggestions
+     */
+    private handleError(operation: string, error: any): void {
+        this.feedbackManager.handleError(operation, error, 'CommandManager');
+    }
+
+    /**
+     * Show success message with enhanced feedback
+     */
+    private showSuccess(message: string, details?: string, actionLabel?: string, action?: () => void): void {
+        this.feedbackManager.showSuccess(message, details, actionLabel, action);
+    }
+
+    /**
+     * Show information message with logging
+     */
+    private showInfo(message: string, details?: string): void {
+        this.feedbackManager.showInfo(message, details);
+    }
+
+    /**
+     * Show warning message with enhanced feedback
+     */
+    private showWarning(message: string, details?: string, actionLabel?: string, action?: () => void): void {
+        this.feedbackManager.showWarning(message, details, actionLabel, action);
+    }
+
+    /**
      * Update VS Code context state for conditional menu items
      */
     private updateContextState(): void {
@@ -800,10 +1223,16 @@ export class CommandManager {
     }
 
     /**
-     * Dispose of all registered commands
+     * Dispose of all resources
      */
     public dispose(): void {
+        this.feedbackManager.dispose();
         this.disposables.forEach(disposable => disposable.dispose());
         this.disposables = [];
+        
+        // Dispose of clipboard manager
+        if (this.clipboardManager) {
+            this.clipboardManager.dispose();
+        }
     }
 }

@@ -1,0 +1,9 @@
+{
+  "defaultView": "text",
+  "autoSave": true,
+  "autoLoadLastGraph": true,
+  "previewRefreshInterval": 1000,
+  "maxNodesPerGraph": 100,
+  "enableBackup": true,
+  "backupInterval": 300000
+}

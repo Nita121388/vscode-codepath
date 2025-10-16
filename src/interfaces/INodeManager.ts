@@ -5,6 +5,7 @@ export interface INodeManager {
     createNode(name: string, filePath: string, lineNumber: number, codeSnippet?: string): Promise<Node>;
     createChildNode(parentId: string, name: string, filePath: string, lineNumber: number): Promise<Node>;
     createParentNode(childId: string, name: string, filePath: string, lineNumber: number): Promise<Node>;
+    createBroNode(name: string, filePath: string, lineNumber: number): Promise<Node>;
     deleteNode(nodeId: string): Promise<void>;
     deleteNodeWithChildren(nodeId: string): Promise<void>;
     updateNode(nodeId: string, updates: Partial<Node>): Promise<void>;

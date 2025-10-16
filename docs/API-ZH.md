@@ -1,6 +1,6 @@
-# CodePath API 参考文档
+# Code Path Marker API 参考文档
 
-本文档提供 CodePath VS Code 扩展的 API 参考信息。
+本文档提供 Code Path Marker VS Code 扩展的 API 参考信息。
 
 ## 📚 目录
 
@@ -15,6 +15,64 @@
 ### GraphManager
 
 管理图表生命周期操作，包括创建、加载、保存和删除。
+
+### ClipboardManager
+
+管理节点复制、粘贴和剪切操作。
+
+#### 主要方法
+
+##### `copyNode(nodeId: string): Promise<void>`
+
+复制节点及其所有子节点到剪贴板。
+
+**参数:**
+- `nodeId`: 要复制的节点 ID。
+
+**示例:**
+```typescript
+await clipboardManager.copyNode('node-123');
+```
+
+##### `cutNode(nodeId: string): Promise<void>`
+
+剪切节点及其所有子节点到剪贴板。
+
+**参数:**
+- `nodeId`: 要剪切的节点 ID。
+
+##### `pasteNode(parentId?: string): Promise<Node[]>`
+
+从剪贴板粘贴节点树。
+
+**参数:**
+- `parentId` (可选): 目标父节点 ID。如果未提供，作为根节点粘贴。
+
+**返回值:** 解析为粘贴的节点数组的 Promise。
+
+### NodeOrderManager
+
+管理节点在同级中的顺序。
+
+#### 主要方法
+
+##### `moveNodeUp(nodeId: string): Promise<boolean>`
+
+将节点在同级中向上移动。
+
+**参数:**
+- `nodeId`: 要移动的节点 ID。
+
+**返回值:** 如果移动成功返回 true，如果已在顶部返回 false。
+
+##### `moveNodeDown(nodeId: string): Promise<boolean>`
+
+将节点在同级中向下移动。
+
+**参数:**
+- `nodeId`: 要移动的节点 ID。
+
+**返回值:** 如果移动成功返回 true，如果已在底部返回 false。
 
 #### 构造函数
 

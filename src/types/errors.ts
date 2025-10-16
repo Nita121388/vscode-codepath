@@ -1,7 +1,7 @@
 /**
  * Categorized error types for CodePath extension
  */
-export type ErrorCategory = 'user' | 'filesystem' | 'validation' | 'rendering' | 'performance';
+export type ErrorCategory = 'user' | 'filesystem' | 'validation' | 'rendering' | 'performance' | 'clipboard' | 'order' | 'menu' | 'network' | 'configuration' | 'integration';
 
 /**
  * Recovery action types that can be suggested to users
@@ -13,6 +13,11 @@ export type RecoveryAction =
     | 'restoreBackup'
     | 'switchToTextView'
     | 'reduceNodes'
+    | 'clearClipboard'
+    | 'refreshPreview'
+    | 'reloadExtension'
+    | 'checkConfiguration'
+    | 'contactSupport'
     | 'none';
 
 /**
@@ -47,17 +52,29 @@ export class CodePathError extends Error {
     private getDefaultUserMessage(category: ErrorCategory): string {
         switch (category) {
             case 'user':
-                return 'Please check your input and try again.';
+                return '请检查您的输入并重试。';
             case 'filesystem':
-                return 'File operation failed. Please check permissions and try again.';
+                return '文件操作失败。请检查权限并重试。';
             case 'validation':
-                return 'Data validation failed. The operation cannot be completed.';
+                return '数据验证失败。无法完成操作。';
             case 'rendering':
-                return 'Preview rendering failed. Switching to text view.';
+                return '预览渲染失败。正在切换到文本视图。';
             case 'performance':
-                return 'Performance limit reached. Consider reducing the graph size.';
+                return '达到性能限制。请考虑减少图表大小。';
+            case 'clipboard':
+                return '剪贴板操作失败。请重试。';
+            case 'order':
+                return '节点顺序操作失败。请检查节点位置并重试。';
+            case 'menu':
+                return '菜单操作失败。请重试或刷新界面。';
+            case 'network':
+                return '网络操作失败。请检查网络连接并重试。';
+            case 'configuration':
+                return '配置错误。请检查扩展设置。';
+            case 'integration':
+                return 'VS Code 集成失败。请重新加载扩展。';
             default:
-                return 'An unexpected error occurred.';
+                return '发生了意外错误。';
         }
     }
 
@@ -73,6 +90,18 @@ export class CodePathError extends Error {
                 return 'switchToTextView';
             case 'performance':
                 return 'reduceNodes';
+            case 'clipboard':
+                return 'clearClipboard';
+            case 'order':
+                return 'refreshPreview';
+            case 'menu':
+                return 'refreshPreview';
+            case 'network':
+                return 'retry';
+            case 'configuration':
+                return 'checkConfiguration';
+            case 'integration':
+                return 'reloadExtension';
             default:
                 return 'none';
         }
@@ -126,5 +155,104 @@ export class CodePathError extends Error {
             userMessage: userMessage ?? 'Performance limit reached. Consider reducing the graph size.',
             suggestedAction: 'reduceNodes'
         });
+    }
+
+    /**
+     * Create a clipboard operation error
+     */
+    static clipboardError(message: string, userMessage?: string): CodePathError {
+        return new CodePathError(`剪贴板操作失败: ${message}`, 'clipboard', {
+            userMessage: userMessage ?? 'Clipboard operation failed. Please try again.',
+            suggestedAction: 'clearClipboard'
+        });
+    }
+
+    /**
+     * Create a node order operation error
+     */
+    static orderError(message: string, userMessage?: string): CodePathError {
+        return new CodePathError(`节点顺序操作失败: ${message}`, 'order', {
+            userMessage: userMessage ?? 'Node order operation failed. Please check node position and try again.',
+            suggestedAction: 'refreshPreview'
+        });
+    }
+
+    /**
+     * Create a menu operation error
+     */
+    static menuError(message: string, userMessage?: string): CodePathError {
+        return new CodePathError(`菜单操作失败: ${message}`, 'menu', {
+            userMessage: userMessage ?? '菜单操作失败。请重试或刷新界面。',
+            suggestedAction: 'refreshPreview'
+        });
+    }
+
+    /**
+     * Create a network operation error
+     */
+    static networkError(message: string, userMessage?: string): CodePathError {
+        return new CodePathError(`网络操作失败: ${message}`, 'network', {
+            userMessage: userMessage ?? '网络操作失败。请检查网络连接并重试。',
+            suggestedAction: 'retry'
+        });
+    }
+
+    /**
+     * Create a configuration error
+     */
+    static configurationError(message: string, userMessage?: string): CodePathError {
+        return new CodePathError(`配置错误: ${message}`, 'configuration', {
+            userMessage: userMessage ?? '配置错误。请检查扩展设置。',
+            suggestedAction: 'checkConfiguration'
+        });
+    }
+
+    /**
+     * Create an integration error
+     */
+    static integrationError(message: string, userMessage?: string): CodePathError {
+        return new CodePathError(`VS Code 集成失败: ${message}`, 'integration', {
+            userMessage: userMessage ?? 'VS Code 集成失败。请重新加载扩展。',
+            suggestedAction: 'reloadExtension'
+        });
+    }
+
+    /**
+     * Get localized error message
+     */
+    getLocalizedMessage(locale: 'zh' | 'en' = 'zh'): string {
+        if (locale === 'en') {
+            return this.getEnglishMessage();
+        }
+        return this.userMessage;
+    }
+
+    private getEnglishMessage(): string {
+        switch (this.category) {
+            case 'user':
+                return 'Please check your input and try again.';
+            case 'filesystem':
+                return 'File operation failed. Please check permissions and try again.';
+            case 'validation':
+                return 'Data validation failed. The operation cannot be completed.';
+            case 'rendering':
+                return 'Preview rendering failed. Switching to text view.';
+            case 'performance':
+                return 'Performance limit reached. Consider reducing the graph size.';
+            case 'clipboard':
+                return 'Clipboard operation failed. Please try again.';
+            case 'order':
+                return 'Node order operation failed. Please check node position and try again.';
+            case 'menu':
+                return 'Menu operation failed. Please try again or refresh the interface.';
+            case 'network':
+                return 'Network operation failed. Please check your connection and try again.';
+            case 'configuration':
+                return 'Configuration error. Please check extension settings.';
+            case 'integration':
+                return 'VS Code integration failed. Please reload the extension.';
+            default:
+                return 'An unexpected error occurred.';
+        }
     }
 }
