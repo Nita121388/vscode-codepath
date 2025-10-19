@@ -181,14 +181,14 @@ const node = await nodeManager.createNode(
 
 **返回值:** 解析为渲染内容字符串的 Promise。
 
-##### `setFormat(format: 'text' | 'mermaid'): void`
+##### `setFormat(format: ViewFormat): void`
 
 设置预览格式。
 
 **参数:**
-- `format`: 预览格式（'text' 或 'mermaid'）。
+- `format`: 预览格式。图表模式仍在规划阶段，当前版本仅支持文本视图。
 
-##### `getFormat(): 'text' | 'mermaid'`
+##### `getFormat(): ViewFormat`
 
 获取当前预览格式。
 
@@ -287,31 +287,9 @@ interface Node {
 └── 🔵 processRequest (/src/api.ts:10)
 ```
 
-### MermaidRenderer
+### DiagramRenderer（规划中）
 
-将图表渲染为 Mermaid 图表。
-
-#### 方法
-
-##### `render(graph: Graph): string`
-
-将图表渲染为 Mermaid 图表。
-
-**参数:**
-- `graph`: 要渲染的图表对象。
-
-**返回值:** Mermaid 图表语法字符串。
-
-**示例输出:**
-```mermaid
-graph TD
-    A[validateInput] --> B[checkPermissions]
-    C[processRequest]
-    
-    classDef current fill:#e1f5fe
-    class A current
-```
-
+图表渲染功能将在后续版本提供，当前版本专注于文本预览。
 ## 错误处理
 
 ### CodePathError
@@ -363,7 +341,7 @@ constructor(
 ```typescript
 interface Configuration {
     /** 默认预览格式 */
-    defaultView: 'text' | 'mermaid';
+    defaultView: ViewFormat;
     /** 启用自动图表保存 */
     autoSave: boolean;
     /** 启动时自动加载上次使用的图表 */
@@ -423,11 +401,7 @@ const childNode = await nodeManager.createChildNode(
 ```typescript
 const previewManager = new PreviewManager(configManager);
 
-// 设置格式并渲染
-previewManager.setFormat('mermaid');
-const diagramContent = await previewManager.renderPreview();
-
-// 切换到文本格式
+// 渲染文本预览（图表模式暂未开放）
 previewManager.setFormat('text');
 const textContent = await previewManager.renderPreview();
 ```

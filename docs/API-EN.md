@@ -123,14 +123,14 @@ Renders the current graph in the selected format.
 
 **Returns:** Promise resolving to rendered content string.
 
-##### `setFormat(format: 'text' | 'mermaid'): void`
+##### `setFormat(format: ViewFormat): void`
 
 Sets the preview format.
 
 **Parameters:**
-- `format`: Preview format ('text' or 'mermaid').
+- `format`: Preview format. Diagram mode is reserved; current release supports text view.
 
-##### `getFormat(): 'text' | 'mermaid'`
+##### `getFormat(): ViewFormat`
 
 Gets the current preview format.
 
@@ -229,31 +229,9 @@ Renders the entire graph as text.
 └── 🔵 processRequest (/src/api.ts:10)
 ```
 
-### MermaidRenderer
+### DiagramRenderer (Planned)
 
-Renders graphs as Mermaid diagrams.
-
-#### Methods
-
-##### `render(graph: Graph): string`
-
-Renders the graph as a Mermaid diagram.
-
-**Parameters:**
-- `graph`: Graph object to render.
-
-**Returns:** Mermaid diagram syntax string.
-
-**Example Output:**
-```mermaid
-graph TD
-    A[validateInput] --> B[checkPermissions]
-    C[processRequest]
-    
-    classDef current fill:#e1f5fe
-    class A current
-```
-
+Diagram rendering will be introduced in a future release. The current version focuses on text-based previews.
 ## Error Handling
 
 ### CodePathError
@@ -305,7 +283,7 @@ The extension supports the following configuration options:
 ```typescript
 interface Configuration {
     /** Default preview format */
-    defaultView: 'text' | 'mermaid';
+    defaultView: ViewFormat;
     /** Enable automatic graph saving */
     autoSave: boolean;
     /** Auto-load last used graph on startup */
@@ -365,11 +343,7 @@ const childNode = await nodeManager.createChildNode(
 ```typescript
 const previewManager = new PreviewManager(configManager);
 
-// Set format and render
-previewManager.setFormat('mermaid');
-const diagramContent = await previewManager.renderPreview();
-
-// Switch to text format
+// Render text preview (diagram mode pending)
 previewManager.setFormat('text');
 const textContent = await previewManager.renderPreview();
 ```

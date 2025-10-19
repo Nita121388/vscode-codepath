@@ -959,6 +959,25 @@ export class IntegrationManager {
     }
 
     /**
+     * 强制刷新预览，并在需要时打开预览面板
+     */
+    public async refreshPreviewAndReveal(): Promise<void> {
+        try {
+            const wasVisible = this.webviewManager.isVisible();
+            this.lastGraphUpdateTime = 0;
+            await this.updatePreview();
+            await this.previewManager.forceUpdate();
+
+            if (!wasVisible) {
+                await this.webviewManager.showPreview();
+            }
+        } catch (error) {
+            console.error('Failed to refresh preview and reveal panel:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Ensures preview panel is visible (auto-opens if not already open)
      */
     private async ensurePreviewVisible(): Promise<void> {

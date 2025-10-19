@@ -22,44 +22,14 @@
 
 ### Requirements Validation
 
-#### ✅ Requirement 1: Create code path nodes
+#### ✅ Requirement 4: Text visualization stability
 - **Status:** PASSING
-- **Coverage:** Node creation with selected text, automatic graph creation, file path and line number capture
-- **Key Tests:**
-  - Node creation with selected text
-  - Automatic graph creation when none exists
-  - File path and line number capture
-  - Unique ID and timestamp assignment
-
-#### ✅ Requirement 2: Parent-child relationships
-- **Status:** PASSING
-- **Coverage:** Child node creation, parent node creation, hierarchical relationship maintenance
-- **Key Tests:**
-  - Child node creation under current node
-  - Parent node creation above current node
-  - Proper hierarchical relationship maintenance
-  - Relationship chain rebuilding
-
-#### ⚠️ Requirement 3: Node navigation
-- **Status:** PARTIAL FAILURES
-- **Coverage:** Fuzzy matching, position matching, context switching
-- **Issues Found:**
-  - Node switching logic has race conditions
-  - Some fuzzy matching edge cases fail
-- **Key Tests:**
-  - Fuzzy name matching for node switching
-  - Position-based exact matching
-  - Quick navigation to code locations
-  - Preview updates on node switching
-
-#### ✅ Requirement 4: Multiple visualization formats
-- **Status:** PASSING (with fallback handling)
-- **Coverage:** Real-time updates, text/mermaid formats, error fallback
+- **Coverage:** Real-time updates, text preview refresh, error fallback
 - **Key Tests:**
   - Real-time preview updates
-  - Text and Mermaid format support
+  - Text preview formatting validation
   - Split-screen layout
-  - Graceful fallback on rendering errors
+  - Graceful fallback when preview refresh fails
 
 #### ⚠️ Requirement 5: Multiple graph management
 - **Status:** PARTIAL FAILURES
@@ -157,11 +127,10 @@
 
 ### Medium Priority Issues
 
-4. **Mermaid Rendering Validation**
-   - **Issue:** Mermaid syntax validation too strict
-   - **Impact:** Some valid node names cause rendering failures
-   - **Root Cause:** Overly aggressive syntax checking
-   - **Recommendation:** Improve Mermaid sanitization
+4. **Diagram Rendering (Planned)**
+   - **Issue:** Diagram rendering feature still under development
+   - **Impact:** Diagram preview unavailable in current release
+   - **Recommendation:** Track future roadmap before enabling diagram tests
 
 5. **Error Handler Recovery Actions**
    - **Issue:** Recovery actions not executing properly
@@ -188,7 +157,7 @@
 ### Operation Performance
 - **Node Creation:** ~50ms average
 - **Graph Switching:** ~100ms average
-- **Preview Update:** ~200ms average (text), ~500ms average (mermaid)
+- **Preview Update:** ~200ms average (text view)
 - **Export/Import:** ~1s for medium graphs (50 nodes)
 
 ### Memory Usage
@@ -237,9 +206,9 @@
 
 ### Short-term Improvements
 
-4. **Enhance Mermaid Rendering**
-   - Priority: Medium
-   - Timeline: 1 week
+4. **Plan Diagram Rendering**
+   - Priority: Deferred until feature readiness
+   - Timeline: To be scheduled after diagram feature is shipped
    - Action: Improve sanitization and error handling
 
 5. **Optimize Performance**

@@ -24,7 +24,7 @@ CodePath 是一个 VS Code 扩展，旨在帮助开发者可视化和追踪代�
 - **测试框架**: Vitest
 - **构建工具**: TypeScript Compiler (tsc)
 - **代码质量**: ESLint
-- **图表渲染**: Mermaid.js (文本格式)
+- **预览渲染**: 文本树结构
 
 ### 📊 项目规模
 - **源代码文件**: 50+ 个 TypeScript 文件
@@ -220,11 +220,9 @@ class Node {
 - **输出**: 层次化文本
 - **格式**: 树状结构显示
 
-##### MermaidRenderer
-- **输入**: Graph 对象
-- **输出**: Mermaid 语法
-- **格式**: 流程图语法---
-
+##### DiagramRenderer（规划中）
+- **状态**: 规划中，当前版本仅输出文本视图
+- **说明**: 图表渲染能力将在未来版本逐步开放
 
 ## 核心文件详解
 
@@ -614,7 +612,7 @@ export class WebviewManager {
     "properties": {
         "codepath.defaultView": {
             "type": "string",
-            "enum": ["text", "mermaid"],
+            "enum": ["text"],
             "default": "text",
             "description": "Default view type for graph preview"
         },
@@ -634,7 +632,7 @@ export class ConfigurationManager {
         const config = vscode.workspace.getConfiguration('codepath');
         
         return {
-            defaultView: config.get<'text' | 'mermaid'>('defaultView', 'text'),
+            defaultView: config.get<'text'>('defaultView', 'text'),
             autoSave: config.get<boolean>('autoSave', true),
             autoLoadLastGraph: config.get<boolean>('autoLoadLastGraph', true),
             previewRefreshInterval: config.get<number>('previewRefreshInterval', 1000),
@@ -783,7 +781,7 @@ public async createNodeWorkflow(name: string): Promise<NodeResult> {
 
 #### 流程1: 创建根节点
 
-```mermaid
+```text
 sequenceDiagram
     participant User
     participant VSCode
@@ -819,7 +817,7 @@ sequenceDiagram
 
 #### 流程2: 创建子节点
 
-```mermaid
+```text
 sequenceDiagram
     participant User
     participant CommandManager
@@ -1757,7 +1755,7 @@ const config = vscode.workspace.getConfiguration('codepath');
 console.log('Current config:', config.get('defaultView'));
 
 // 检查配置更新
-await config.update('defaultView', 'mermaid', vscode.ConfigurationTarget.Global);
+await config.update('defaultView', 'text', vscode.ConfigurationTarget.Global);
 ```
 
 **问题3: 文件操作失败**

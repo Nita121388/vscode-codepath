@@ -64,6 +64,7 @@ describe('Extension Lifecycle', () => {
                 defaultView: 'text',
                 autoSave: true,
                 autoLoadLastGraph: true,
+                autoOpenPreviewOnStartup: true,
                 previewRefreshInterval: 1000,
                 maxNodesPerGraph: 100,
                 enableBackup: true,
@@ -78,6 +79,7 @@ describe('Extension Lifecycle', () => {
                 defaultView: 'text',
                 autoSave: true,
                 autoLoadLastGraph: true,
+                autoOpenPreviewOnStartup: true,
                 previewRefreshInterval: 1000,
                 maxNodesPerGraph: 100,
                 enableBackup: true,
@@ -185,6 +187,7 @@ describe('Extension Lifecycle', () => {
 
             mockConfigManager.getConfiguration.mockReturnValue({
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: true,
                 autoSave: true,
                 defaultView: 'text',
                 previewRefreshInterval: 1000,
@@ -281,6 +284,7 @@ describe('Extension Lifecycle', () => {
             mockConfigManager.getConfiguration.mockReturnValue({
                 autoSave: false,
                 autoLoadLastGraph: true,
+                autoOpenPreviewOnStartup: true,
                 defaultView: 'text',
                 previewRefreshInterval: 1000,
                 maxNodesPerGraph: 100,

@@ -453,8 +453,8 @@ export class CommandManager {
      */
     private async handleRefreshPreview(): Promise<void> {
         try {
-            await this.integrationManager.updatePreview();
-            this.showSuccess('预览已刷新');
+            await this.integrationManager.refreshPreviewAndReveal();
+            this.showSuccess('预览已刷新', '已自动检查并显示预览面板');
         } catch (error) {
             this.handleError('刷新预览', error);
         }

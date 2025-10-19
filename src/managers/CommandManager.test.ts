@@ -87,6 +87,7 @@ describe('CommandManager', () => {
             switchGraphWorkflow: vi.fn(),
             showPreview: vi.fn(),
             updatePreview: vi.fn(),
+            refreshPreviewAndReveal: vi.fn(),
             togglePreviewFormat: vi.fn(),
             getState: vi.fn().mockReturnValue({
                 hasGraph: true,
@@ -571,7 +572,7 @@ describe('CommandManager', () => {
     });
 
     describe('handleRefreshPreview', () => {
-        it('should call updatePreview and show success message', async () => {
+        it('should refresh preview and ensure panel visibility', async () => {
             commandManager.registerCommands(mockContext);
 
             const refreshHandler = (vscode.commands.registerCommand as Mock).mock.calls
@@ -579,8 +580,8 @@ describe('CommandManager', () => {
 
             await refreshHandler();
 
-            expect(mockIntegrationManager.updatePreview).toHaveBeenCalled();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Preview refreshed');
+            expect(mockIntegrationManager.refreshPreviewAndReveal).toHaveBeenCalled();
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('预览已刷新');
         });
     });
 

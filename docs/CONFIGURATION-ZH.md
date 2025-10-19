@@ -25,20 +25,9 @@
 }
 ```
 
-**选项**: `"text"` | `"mermaid"`  
+**选项**: `"text"`  
 **默认值**: `"text"`  
-**描述**: 设置预览面板的默认显示格式
-
-- `"text"`: 层次化文本视图，显示节点树结构
-- `"mermaid"`: Mermaid 图表视图，显示可视化流程图
-
-**示例**:
-```json
-// 默认使用图表视图
-{
-  "codepath.defaultView": "mermaid"
-}
-```
+**描述**: 设置预览面板的默认显示格式。当前仅支持文本视图，图表格式将在后续版本开放。
 
 ### 自动保存
 ```json
@@ -69,6 +58,20 @@
 
 - `true`: 启动时恢复上次的工作状态
 - `false`: 每次启动都从空白状态开始
+
+### 启动时自动打开预览
+```json
+{
+  "codepath.autoOpenPreviewOnStartup": true
+}
+```
+
+**类型**: `boolean`  
+**默认值**: `true`  
+**描述**: 控制扩展初始化完成后是否自动唤起预览面板
+
+- `true`: 自动在侧边栏或编辑器中弹出 CodePath 预览
+- `false`: 仅加载数据，保持编辑器聚焦，需手动打开预览
 
 ### 预览刷新间隔
 ```json
@@ -113,6 +116,7 @@
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": true,
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 100,
   
@@ -129,7 +133,7 @@
 
 ```json
 {
-  "codepath.defaultView": "mermaid",
+  "codepath.defaultView": "text",
   "codepath.maxNodesPerGraph": 150,
   "codepath.previewRefreshInterval": 500
 }
@@ -151,13 +155,14 @@
 }
 ```
 
-### 场景 2: 可视化优先
-适用于需要频繁查看图表的场景：
+### 场景 2: 预览刷新优先
+适用于需要更高刷新频率的场景：
 
 ```json
 {
-  "codepath.defaultView": "mermaid",
+  "codepath.defaultView": "text",
   "codepath.autoSave": true,
+  "codepath.autoOpenPreviewOnStartup": false,
   "codepath.previewRefreshInterval": 500,
   "codepath.maxNodesPerGraph": 100
 }
@@ -171,6 +176,7 @@
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": false,
+  "codepath.autoOpenPreviewOnStartup": false,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 75
 }
@@ -270,6 +276,7 @@ your-project/
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": true,
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 100
 }
@@ -285,6 +292,7 @@ your-project/
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": true,
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 100
 }
@@ -296,6 +304,7 @@ your-project/
 ```json
 {
   "codepath.defaultView": "text",
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.maxNodesPerGraph": 75,
   "codepath.previewRefreshInterval": 1000
 }

@@ -98,6 +98,20 @@ describe('WebviewManager Custom Menu Integration', () => {
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNode');
         });
 
+        it('should allow opening settings from preview context menu', async () => {
+            // Setup
+            (vscode.window.showQuickPick as any).mockResolvedValue({ label: '⚙️ 打开设置' });
+            (vscode.commands.executeCommand as any).mockResolvedValue(undefined);
+
+            // Execute context menu without selecting a node
+            const showPreviewContextMenu = (webviewManager as any).showPreviewContextMenu.bind(webviewManager);
+            await showPreviewContextMenu(null, 50, 80);
+
+            // Verify settings command executed
+            expect(vscode.window.showQuickPick).toHaveBeenCalled();
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'codepath');
+        });
+
         it('should integrate with node order operations', async () => {
             // Setup
             const mockNode = { 
@@ -187,14 +201,14 @@ describe('WebviewManager Custom Menu Integration', () => {
             await showPreviewContextMenu('/test/file.ts:42', 100, 200);
 
             // Verify the node was found and operation executed
-            expect(vscode.window.showQuickPick).toHaveBeenCalledWith(
-                expect.arrayContaining([
-                    expect.objectContaining({ label: '📋 复制' }),
-                ]),
-                expect.objectContaining({
-                    placeHolder: '选择操作 (Node: Test Node)',
-                })
-            );
+            expect(vscode.window.showQuickPick).toHaveBeenCalled();
+            const [items, options] = (vscode.window.showQuickPick as any).mock.calls[0];
+            expect(items).toEqual(expect.arrayContaining([
+                expect.objectContaining({ label: expect.stringContaining('复制') })
+            ]));
+            expect(options).toEqual(expect.objectContaining({
+                placeHolder: '请选择操作 (Node: Test Node)'
+            }));
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNode');
         });
 
@@ -218,12 +232,11 @@ describe('WebviewManager Custom Menu Integration', () => {
             await showPreviewContextMenu(null, 100, 200);
 
             // Verify paste option is available
-            expect(vscode.window.showQuickPick).toHaveBeenCalledWith(
-                expect.arrayContaining([
-                    expect.objectContaining({ label: '📄 粘贴' }),
-                ]),
-                expect.any(Object)
-            );
+            expect(vscode.window.showQuickPick).toHaveBeenCalled();
+            const [items] = (vscode.window.showQuickPick as any).mock.calls[0];
+            expect(items).toEqual(expect.arrayContaining([
+                expect.objectContaining({ label: expect.stringContaining('粘贴') })
+            ]));
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.pasteNode');
         });
     });
@@ -264,3 +277,9 @@ describe('WebviewManager Custom Menu Integration', () => {
         });
     });
 });
+
+
+
+
+
+

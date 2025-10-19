@@ -6,7 +6,7 @@
 
 ## Overview
 
-Code Path Marker is a VS Code extension that lets you capture execution paths while reading or debugging source code. Each execution point is stored as a navigable node, and the extension provides both text trees and diagram views so you can explore complex logic without getting lost.
+Code Path Marker is a VS Code extension that lets you capture execution paths while reading or debugging source code. Each execution point is stored as a navigable node, and the extension provides a structured text tree so you can explore complex logic without getting lost.
 
 ## Capability Map
 
@@ -14,7 +14,7 @@ Code Path Marker is a VS Code extension that lets you capture execution paths wh
 | --- | --- |
 | Path Marking | Unified "Code Path" context menu, root/parent/child/sibling nodes, file and folder marking, node copy/paste/cut/reorder |
 | Smart Tracking | Multi-strategy location matching (exact/near/full-text/fuzzy), SHA-256 code fingerprinting, confidence scoring, automatic node updates |
-| Visualization | Text tree and Mermaid diagrams, real-time refresh, split view layouts, customizable preview menu, status bar hints |
+| Visualization | Text tree preview, real-time refresh, split view layouts, customizable preview menu, status bar hints |
 | Graph Management | Multiple Code Paths, auto-save with scheduled backups, auto-load last graph, quick preview from graph files |
 | Collaboration | One-click export/import of `.codepath/*.json`, auto-switch and focus after import, clipboard sharing on Windows/macOS |
 | Developer Experience | Command palette and shortcuts, actionable error hints, configurable defaults for layout, performance, and persistence |
@@ -23,7 +23,7 @@ Code Path Marker is a VS Code extension that lets you capture execution paths wh
 
 - **Debug complex logic**: Map function call chains step-by-step and keep node locations in sync as code moves.
 - **Review or handover**: Export graphs for teammates to review critical paths and reduce explanation time.
-- **Document and teach**: Generate Mermaid diagrams to illustrate flows for onboarding or workshops.
+- **Document and teach**: Capture execution flows in structured text to support onboarding or workshops.
 - **Refactor safely**: Combine auto-update confidence scores with manual checks to ensure important nodes remain valid.
 
 ## Requirements
@@ -42,7 +42,7 @@ Code Path Marker is a VS Code extension that lets you capture execution paths wh
 ### Build Your First Execution Path
 1. Select any code snippet and choose `Code Path → Mark as New Node` to create a root.
 2. Keep selecting code and use `Mark as Child Node`, `Mark as Parent Node`, or `Mark as Bro Node` to build hierarchy.
-3. Click nodes inside the Code Path preview panel to navigate to the file and view the live tree or Mermaid diagram.
+3. Click nodes inside the Code Path preview panel to navigate to the file and view the live tree.
 4. When code shifts, press Refresh and follow the guidance to update node locations.
 
 ### Keyboard Shortcuts
@@ -56,7 +56,7 @@ Code Path Marker is a VS Code extension that lets you capture execution paths wh
 | Mark sibling node | `Ctrl+Alt+B` | Add a sibling node at the same level |
 | Switch node | `Ctrl+Alt+S` | Fuzzy search and select a different node |
 | Switch Code Path | `Ctrl+Shift+G` | Jump between different graphs |
-| Toggle view format | `Ctrl+Shift+T` | Switch between text and Mermaid diagram |
+| Toggle view format | `Ctrl+Shift+T` | Reserved for future diagram formats (currently text-only) |
 | Refresh preview | `Ctrl+Shift+R` | Refresh the preview and rerun location checks |
 
 Use `Ctrl+Shift+P` and search for "Code Path Marker" to discover the full command set.
@@ -77,7 +77,7 @@ Use `Ctrl+Shift+P` and search for "Code Path Marker" to discover the full comman
 ### Graph Management and Visualization
 - The status bar menu surfaces the active Code Path, node count, and auto-save state at a glance.
 - Maintain multiple graphs within one workspace and switch seamlessly; the preview and status bar stay in sync.
-- Text view provides a minimal hierarchical tree, whereas Mermaid view renders a flow diagram; swap formats anytime.
+- Text view provides a minimal hierarchical tree with instant refresh. Diagram formats are under development.
 - The preview context menu offers refresh, export, copy, paste, cut, and reorder options, replacing the default browser menu.
 
 ### Collaboration and Sharing
@@ -102,6 +102,7 @@ Tune settings via VS Code Preferences (`Ctrl+,`) and search for "Code Path Marke
 | (Internal) default preview mode | `"text"` | Currently locked to text view and not user configurable |
 | `codepath.autoSave` | `true` | Enable automatic graph saving |
 | `codepath.autoLoadLastGraph` | `true` | Load the most recent graph on startup |
+| `codepath.autoOpenPreviewOnStartup` | `true` | Automatically reveal the preview after loading the last graph |
 | `codepath.previewRefreshInterval` | `1000` | Preview refresh interval in milliseconds |
 | `codepath.maxNodesPerGraph` | `100` | Soft limit per graph; exceeding may trigger performance notices |
 
@@ -126,7 +127,7 @@ More detailed guides live in `docs/LEARNING-GUIDE-EN.md` and `docs/QUICK_REFEREN
 ## FAQ
 
 1. **Can I share graphs with teammates?** Yes. Export `.codepath` files and commit them alongside source. Git history makes collaboration transparent.
-2. **What if Mermaid rendering fails?** The built-in validator shows errors when diagrams break. Adjust node names or fall back to text view by default.
+2. **Can I render diagrams today?** Diagram formatting is still under development; the preview currently focuses on text visualization.
 3. **How do I keep large graphs responsive?** Split logic into multiple Code Paths and lower the refresh interval. The extension warns as you approach the node limit.
 
 ## Further Reading

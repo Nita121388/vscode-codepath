@@ -91,6 +91,7 @@ export class StorageManager implements IStorageManager {
             defaultView: 'text',
             autoSave: true,
             autoLoadLastGraph: true,
+            autoOpenPreviewOnStartup: true,
             previewRefreshInterval: 1000,
             maxNodesPerGraph: 100,
             enableBackup: true,

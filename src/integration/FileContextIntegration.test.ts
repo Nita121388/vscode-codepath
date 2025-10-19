@@ -104,6 +104,7 @@ describe('File/Folder Context Integration Tests', () => {
             switchNodeWorkflow: vi.fn(),
             switchGraphWorkflow: vi.fn(),
             updatePreview: vi.fn(),
+            refreshPreviewAndReveal: vi.fn(),
             showPreview: vi.fn(),
             togglePreviewFormat: vi.fn(),
             getState: vi.fn(() => ({ hasCurrentNode: false, hasGraph: false })),

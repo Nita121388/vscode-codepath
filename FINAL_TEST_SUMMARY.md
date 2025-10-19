@@ -26,10 +26,9 @@ The CodePath extension has been thoroughly tested with comprehensive integration
 - Graph switching functionality
 - State management between graphs
 
-#### ✅ Preview Rendering (3/3 tests passed)
+#### ✅ Preview Rendering (Text coverage)
 - Text format rendering with hierarchical display
-- Mermaid diagram rendering with graceful fallback
-- Format switching between text and diagram views
+- Preview refresh fallback handling
 
 #### ✅ Error Handling (2/2 tests passed)
 - File system error handling with graceful degradation
@@ -63,7 +62,7 @@ The CodePath extension has been thoroughly tested with comprehensive integration
 
 ### Key Features Validated
 - **Node Creation:** From selected code with automatic metadata capture
-- **Graph Visualization:** Both text and Mermaid diagram formats
+- **Graph Visualization:** Text preview with fallback handling
 - **Error Recovery:** Graceful handling of edge cases and failures
 - **Performance:** Efficient operation with multiple nodes
 - **Compatibility:** Works across different operating systems

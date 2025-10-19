@@ -433,7 +433,9 @@ export class WebviewManager implements IWebviewManager {
      * Checks if the preview panel is visible
      */
     public isVisible(): boolean {
-        return this.panel !== null && this.panel.visible;
+        const panelVisible = this.panel !== null && this.panel.visible;
+        const viewVisible = this.view !== null && this.view.visible;
+        return panelVisible || viewVisible;
     }
 
     /**
@@ -795,6 +797,11 @@ export class WebviewManager implements IWebviewManager {
                     label: '📤 导出',
                     description: 'Export graph',
                     detail: 'Export current graph to file'
+                },
+                {
+                    label: '⚙️ 打开设置',
+                    description: 'Open configuration settings',
+                    detail: 'Adjust CodePath preferences in VS Code settings'
                 }
             ];
 
@@ -807,7 +814,7 @@ export class WebviewManager implements IWebviewManager {
                         detail: 'Copy the selected node and all its children to clipboard'
                     },
                     {
-                        label: '📥 粘贴',
+                        label: '📄 粘贴',
                         description: 'Paste node',
                         detail: 'Paste node from clipboard as child of current node'
                     },
@@ -830,7 +837,7 @@ export class WebviewManager implements IWebviewManager {
             } else if (await this.hasClipboardData()) {
                 // Show paste option even without node selection if clipboard has data
                 items.push({
-                    label: '📥 粘贴',
+                    label: '📄 粘贴',
                     description: 'Paste node',
                     detail: 'Paste node from clipboard as new root node'
                 });
@@ -872,6 +879,9 @@ export class WebviewManager implements IWebviewManager {
                     } else {
                         await vscode.commands.executeCommand('codepath.exportGraph');
                     }
+                    break;
+                case '打开设置':
+                    await vscode.commands.executeCommand('workbench.action.openSettings', 'codepath');
                     break;
                 case '复制':
                     if (nodeId) {

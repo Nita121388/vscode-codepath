@@ -25,20 +25,9 @@ This document provides detailed information about all configuration options and 
 }
 ```
 
-**Options**: `"text"` | `"mermaid"`  
+**Options**: `"text"`  
 **Default**: `"text"`  
-**Description**: Sets the default display format for the preview panel
-
-- `"text"`: Hierarchical text view showing node tree structure
-- `"mermaid"`: Mermaid diagram view showing visual flowcharts
-
-**Example**:
-```json
-// Use diagram view by default
-{
-  "codepath.defaultView": "mermaid"
-}
-```
+**Description**: Sets the default display format for the preview panel。当前仅支持文本视图，图表格式将在未来版本开放。
 
 ### Auto Save
 ```json
@@ -69,6 +58,20 @@ This document provides detailed information about all configuration options and 
 
 - `true`: Restores previous work state on startup
 - `false`: Starts with blank state each time
+
+### Auto Open Preview on Startup
+```json
+{
+  "codepath.autoOpenPreviewOnStartup": true
+}
+```
+
+**Type**: `boolean`  
+**Default**: `true`  
+**Description**: Controls whether the preview panel should pop up automatically when the extension initializes
+
+- `true`: Automatically reveals the preview after loading the last graph
+- `false`: Keeps editors focused; users can open the preview manually when needed
 
 ### Preview Refresh Interval
 ```json
@@ -113,6 +116,7 @@ This document provides detailed information about all configuration options and 
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": true,
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 100,
   
@@ -129,7 +133,7 @@ Create `.vscode/settings.json` in project root:
 
 ```json
 {
-  "codepath.defaultView": "mermaid",
+  "codepath.defaultView": "text",
   "codepath.maxNodesPerGraph": 150,
   "codepath.previewRefreshInterval": 500
 }
@@ -151,13 +155,14 @@ For large projects or lower-performance machines:
 }
 ```
 
-### Scenario 2: Visualization Priority
-For scenarios requiring frequent diagram viewing:
+### Scenario 2: Preview Refresh Priority
+For scenarios requiring more frequent preview updates:
 
 ```json
 {
-  "codepath.defaultView": "mermaid",
+  "codepath.defaultView": "text",
   "codepath.autoSave": true,
+  "codepath.autoOpenPreviewOnStartup": false,
   "codepath.previewRefreshInterval": 500,
   "codepath.maxNodesPerGraph": 100
 }
@@ -171,6 +176,7 @@ For team development environments:
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": false,
+  "codepath.autoOpenPreviewOnStartup": false,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 75
 }
@@ -270,6 +276,7 @@ Add to `keybindings.json`:
   "codepath.defaultView": "text",
   "codepath.autoSave": true,
   "codepath.autoLoadLastGraph": true,
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.previewRefreshInterval": 1000,
   "codepath.maxNodesPerGraph": 100
 }
@@ -296,6 +303,7 @@ For team projects, standardize configuration in `.vscode/settings.json`:
 ```json
 {
   "codepath.defaultView": "text",
+  "codepath.autoOpenPreviewOnStartup": true,
   "codepath.maxNodesPerGraph": 75,
   "codepath.previewRefreshInterval": 1000
 }

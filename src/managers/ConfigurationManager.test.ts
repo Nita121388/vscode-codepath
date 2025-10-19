@@ -53,6 +53,7 @@ describe('ConfigurationManager', () => {
             expect(defaultConfig.defaultView).toBe('text');
             expect(defaultConfig.autoSave).toBe(true);
             expect(defaultConfig.autoLoadLastGraph).toBe(true);
+            expect(defaultConfig.autoOpenPreviewOnStartup).toBe(true);
             expect(defaultConfig.previewRefreshInterval).toBe(1000);
             expect(defaultConfig.maxNodesPerGraph).toBe(100);
             expect(defaultConfig.enableBackup).toBe(true);
@@ -78,6 +79,7 @@ describe('ConfigurationManager', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
@@ -154,6 +156,7 @@ describe('ConfigurationManager', () => {
             const invalidConfigs = [
                 { autoSave: 'true' as any },
                 { autoLoadLastGraph: 1 as any },
+                { autoOpenPreviewOnStartup: 'yes' as any },
                 { enableBackup: null as any }
             ];
 
@@ -169,6 +172,7 @@ describe('ConfigurationManager', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
@@ -238,6 +242,7 @@ describe('ConfigurationManager', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
@@ -315,6 +320,7 @@ describe('ConfigurationManager', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
@@ -369,6 +375,7 @@ describe('ConfigurationManager', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
@@ -434,6 +441,7 @@ describe('ConfigurationManager', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,

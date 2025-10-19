@@ -292,11 +292,14 @@ async function autoLoadLastGraph(): Promise<void> {
 
         // Auto-open preview panel if graph has nodes
         if (lastGraph.nodes.size > 0 && extensionState.integrationManager) {
-            // Update preview content first
+            // 更新预览内容，确保后续用户手动打开时能立即看到最新状态
             await extensionState.integrationManager.updatePreview();
-            // Then show the preview panel
-            await extensionState.integrationManager.showPreview();
-            console.log('CodePath: Auto-opened preview panel with graph content');
+
+            if (config.autoOpenPreviewOnStartup) {
+                // Then show the preview panel
+                await extensionState.integrationManager.showPreview();
+                console.log('CodePath: Auto-opened preview panel with graph content');
+            }
         }
     } catch (error) {
         console.warn('CodePath: Failed to auto-load last graph:', error);

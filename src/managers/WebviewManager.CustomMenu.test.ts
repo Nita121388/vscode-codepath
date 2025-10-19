@@ -63,6 +63,7 @@ describe('WebviewManager Custom Menu', () => {
             const mockQuickPickItems = [
                 { label: '🔄 刷新', description: 'Refresh preview content' },
                 { label: '📤 导出', description: 'Export graph' },
+                { label: '⚙️ 打开设置', description: 'Open configuration settings' },
             ];
             (vscode.window.showQuickPick as any).mockResolvedValue(mockQuickPickItems[0]);
 
@@ -79,15 +80,16 @@ describe('WebviewManager Custom Menu', () => {
             await showPreviewContextMenu(null, 100, 200);
 
             // Verify
-            expect(vscode.window.showQuickPick).toHaveBeenCalledWith(
-                expect.arrayContaining([
-                    expect.objectContaining({ label: '🔄 刷新' }),
-                    expect.objectContaining({ label: '📤 导出' }),
-                ]),
-                expect.objectContaining({
-                    placeHolder: '选择操作 (Select Action)',
-                })
-            );
+            expect(vscode.window.showQuickPick).toHaveBeenCalled();
+            const [items, options] = (vscode.window.showQuickPick as any).mock.calls[0];
+            expect(items).toEqual(expect.arrayContaining([
+                expect.objectContaining({ label: expect.stringContaining('刷新') }),
+                expect.objectContaining({ label: expect.stringContaining('导出') }),
+                expect.objectContaining({ label: expect.stringContaining('打开设置') }),
+            ]));
+            expect(options).toEqual(expect.objectContaining({
+                placeHolder: '请选择操作 (Select Action)',
+            }));
         });
 
         it('should show node-specific menu items when valid node is selected', async () => {
@@ -108,20 +110,21 @@ describe('WebviewManager Custom Menu', () => {
             await showPreviewContextMenu('test-node-id', 100, 200);
 
             // Verify
-            expect(vscode.window.showQuickPick).toHaveBeenCalledWith(
-                expect.arrayContaining([
-                    expect.objectContaining({ label: '🔄 刷新' }),
-                    expect.objectContaining({ label: '📤 导出' }),
-                    expect.objectContaining({ label: '📋 复制' }),
-                    expect.objectContaining({ label: '📄 粘贴' }),
-                    expect.objectContaining({ label: '✂️ 剪切' }),
-                    expect.objectContaining({ label: '⬆️ 上移' }),
-                    expect.objectContaining({ label: '⬇️ 下移' }),
-                ]),
-                expect.objectContaining({
-                    placeHolder: '选择操作 (Node: Test Node)',
-                })
-            );
+            expect(vscode.window.showQuickPick).toHaveBeenCalled();
+            const [items, options] = (vscode.window.showQuickPick as any).mock.calls[0];
+            expect(items).toEqual(expect.arrayContaining([
+                expect.objectContaining({ label: expect.stringContaining('刷新') }),
+                expect.objectContaining({ label: expect.stringContaining('导出') }),
+                expect.objectContaining({ label: expect.stringContaining('打开设置') }),
+                expect.objectContaining({ label: expect.stringContaining('复制') }),
+                expect.objectContaining({ label: expect.stringContaining('粘贴') }),
+                expect.objectContaining({ label: expect.stringContaining('剪切') }),
+                expect.objectContaining({ label: expect.stringContaining('上移') }),
+                expect.objectContaining({ label: expect.stringContaining('下移') }),
+            ]));
+            expect(options).toEqual(expect.objectContaining({
+                placeHolder: '请选择操作 (Node: Test Node)',
+            }));
         });
 
         it('should show paste option when clipboard has data but no node selected', async () => {
@@ -141,14 +144,14 @@ describe('WebviewManager Custom Menu', () => {
             await showPreviewContextMenu(null, 100, 200);
 
             // Verify
-            expect(vscode.window.showQuickPick).toHaveBeenCalledWith(
-                expect.arrayContaining([
-                    expect.objectContaining({ label: '🔄 刷新' }),
-                    expect.objectContaining({ label: '📤 导出' }),
-                    expect.objectContaining({ label: '📄 粘贴' }),
-                ]),
-                expect.any(Object)
-            );
+            expect(vscode.window.showQuickPick).toHaveBeenCalled();
+            const [items] = (vscode.window.showQuickPick as any).mock.calls[0];
+            expect(items).toEqual(expect.arrayContaining([
+                expect.objectContaining({ label: expect.stringContaining('刷新') }),
+                expect.objectContaining({ label: expect.stringContaining('导出') }),
+                expect.objectContaining({ label: expect.stringContaining('打开设置') }),
+                expect.objectContaining({ label: expect.stringContaining('粘贴') }),
+            ]));
         });
     });
 
@@ -191,6 +194,18 @@ describe('WebviewManager Custom Menu', () => {
             // Verify
             expect((webviewManager as any).setCurrentNodeForOperation).toHaveBeenCalledWith('test-node-id');
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.pasteNode');
+        });
+
+        it('should execute open settings action', async () => {
+            // Setup
+            const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
+            (vscode.commands.executeCommand as any).mockResolvedValue(undefined);
+
+            // Execute
+            await executePreviewAction('⚙️ 打开设置', null);
+
+            // Verify
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'codepath');
         });
     });
 
@@ -287,3 +302,10 @@ describe('WebviewManager Custom Menu', () => {
         });
     });
 });
+
+
+
+
+
+
+

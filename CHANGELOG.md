@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-10-19
+
+### Added
+- `codepath.autoOpenPreviewOnStartup` setting to control whether the preview panel auto-opens after loading the last graph.
+
+### Changed
+- Status bar quick menu refresh entry renamed to “👁️ Refresh & Preview” and now forces the preview panel to reveal when hidden.
+- Preview webview quick menu adds a “⚙️ Open Settings” shortcut and clarifies the paste command icon for better discoverability.
+
+### Fixed
+- Manual refresh flows now reuse consistent visibility detection, ensuring forced updates render correctly for both panel and sidebar views.
+
 ## [0.2.0] - 2025-10-16
 
 ### Added
@@ -123,7 +135,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Error messages reference updated command names
   - Consistent terminology throughout the extension
 - Improved error handling and recovery mechanisms
-- Enhanced Mermaid rendering with better sanitization
 - Optimized memory usage for large graphs
 - Preview panel now automatically opens when loading a graph with existing nodes
 - Simplified status bar to show only graph information (removed node and preview status items)
@@ -136,7 +147,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Preview panel not auto-opening on VS Code startup when graph is loaded
 - Preview panel showing empty content on startup (now properly displays loaded graph)
 - Status bar not showing current graph info on startup (now updates automatically)
-- **Mermaid syntax validation** - Fixed false positive errors for node definitions with complex bracket patterns
 
 ## [0.1.0] - 2025-10-01
 
@@ -150,7 +160,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Visualization**
   - Text-based hierarchical graph representation
-  - Mermaid diagram visualization with flowcharts
   - Real-time preview updates
   - Split-screen layout (code + preview)
   - Format switching between text and diagrams
@@ -170,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Context-sensitive menu items
 
 - **Configuration**
-  - Default view format setting (text/mermaid)
+  - Default view format setting (text)
   - Auto-save enable/disable
   - Auto-load last graph on startup
   - Preview refresh interval configuration
@@ -217,7 +226,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Rendering System**
   - `TextRenderer`: Hierarchical text representation
-  - `MermaidRenderer`: Diagram generation with syntax validation
   - Fallback mechanisms for rendering failures
   - Performance optimization for large graphs
 
@@ -262,13 +270,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Operation Performance**
   - Node creation: ~50ms average
   - Graph switching: ~100ms average
-  - Preview update: ~200ms (text), ~500ms (mermaid)
+  - Preview update: ~200ms (text view)
   - Export/import: ~1s for medium graphs
 
 ### Known Issues
 
 - Some child node creation edge cases may fail (race conditions)
-- Mermaid rendering may be overly strict with special characters
 - Extension activation sequence needs optimization
 - Error recovery mechanisms need enhancement
 

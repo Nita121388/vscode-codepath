@@ -24,7 +24,7 @@ CodePath is a VS Code extension designed to help developers visualize and track 
 - **Testing Framework**: Vitest
 - **Build Tool**: TypeScript Compiler (tsc)
 - **Code Quality**: ESLint
-- **Diagram Rendering**: Mermaid.js (text format)
+- **Preview Rendering**: Text tree
 
 ### 📊 Project Scale
 - **Source Files**: 50+ TypeScript files

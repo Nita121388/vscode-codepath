@@ -56,6 +56,7 @@ export interface Configuration {
     defaultView: 'text' | 'mermaid';
     autoSave: boolean;
     autoLoadLastGraph: boolean;
+    autoOpenPreviewOnStartup: boolean;
     previewRefreshInterval: number;
     maxNodesPerGraph: number;
     enableBackup: boolean;

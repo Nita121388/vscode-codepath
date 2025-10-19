@@ -41,7 +41,7 @@ codepath-extension/
 │   ├── extension.ts             # Main extension entry point
 │   ├── managers/                # Core business logic managers
 │   ├── models/                  # Data models (Graph, Node)
-│   ├── renderers/               # Preview rendering (Text, Mermaid)
+│   ├── renderers/               # Preview rendering (Text)
 │   ├── types/                   # TypeScript type definitions
 │   ├── interfaces/              # Interface definitions
 │   └── integration/             # Integration tests
@@ -56,7 +56,7 @@ codepath-extension/
 - **Extension.ts**: Main activation and deactivation logic
 - **Managers**: Business logic for graphs, nodes, preview, storage, etc.
 - **Models**: Graph and Node data structures with validation
-- **Renderers**: Text and Mermaid diagram generation
+- **Renderers**: Text preview generation (diagram rendering planned)
 - **Integration Tests**: End-to-end workflow testing
 
 ## 🧪 Testing

@@ -69,6 +69,7 @@ describe('CommandManager - Edge Cases and Error Handling', () => {
             createParentNodeWorkflow: vi.fn(),
             createBroNodeWorkflow: vi.fn(),
             updatePreview: vi.fn(),
+            refreshPreviewAndReveal: vi.fn(),
             showPreview: vi.fn(),
             switchNodeWorkflow: vi.fn(),
             switchGraphWorkflow: vi.fn(),

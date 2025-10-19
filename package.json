@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -314,6 +314,11 @@
           "type": "boolean",
           "default": true,
           "description": "Auto-load the last used graph on startup"
+        },
+        "codepath.autoOpenPreviewOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "在启动时自动打开预览面板"
         },
         "codepath.previewRefreshInterval": {
           "type": "number",

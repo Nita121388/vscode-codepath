@@ -23,6 +23,7 @@ export class ConfigurationManager implements IConfigurationManager {
             defaultView: 'text',
             autoSave: true,
             autoLoadLastGraph: true,
+            autoOpenPreviewOnStartup: true,
             previewRefreshInterval: 1000,
             maxNodesPerGraph: 100,
             enableBackup: true,
@@ -241,6 +242,12 @@ export class ConfigurationManager implements IConfigurationManager {
 
             if ('autoLoadLastGraph' in config) {
                 if (!this.validateBoolean(config.autoLoadLastGraph, 'autoLoadLastGraph')) {
+                    return false;
+                }
+            }
+
+            if ('autoOpenPreviewOnStartup' in config) {
+                if (!this.validateBoolean(config.autoOpenPreviewOnStartup, 'autoOpenPreviewOnStartup')) {
                     return false;
                 }
             }
@@ -542,6 +549,11 @@ export class ConfigurationManager implements IConfigurationManager {
                 type: 'boolean',
                 default: true,
                 description: 'Automatically load the last used graph on startup'
+            },
+            autoOpenPreviewOnStartup: {
+                type: 'boolean',
+                default: true,
+                description: '打开 IDE 时自动展开 CodePath 预览面板'
             },
             previewRefreshInterval: {
                 type: 'number',

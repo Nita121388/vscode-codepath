@@ -44,8 +44,9 @@ By reconstructing the execution path in a visual node graph, it assists with deb
 ### ⚡ Key Features
 
 - **Interactive Node Marking** from selected code with unified "Code Path" submenu
-- **Dual Visualization** (Text + Mermaid diagrams) with instant switching
+- **Text Visualization** with instant refresh and hierarchical view
 - **Multiple Graph Management** with quick status bar menu
+- **Status Bar Quick Menu** now offers *👁️ Refresh & Preview* that refreshes the view and opens the preview panel when needed
 - **Smart Navigation** with fuzzy matching and location tracking
 - **Auto Location Update** - Intelligent code tracking with multi-strategy search
 - **Tree Fork Support** - Track multiple execution paths for the same code
@@ -59,7 +60,7 @@ By reconstructing the execution path in a visual node graph, it assists with deb
 
 - **Debug Complex Logic** - Visualize execution flow with automatic location tracking
 - **Code Review** - Share execution paths with team via export/import
-- **Documentation** - Generate flow diagrams with Mermaid support
+- **Documentation** - Capture execution flows with structured text export
 - **Learning** - Understand complex codebases with interactive navigation
 - **Refactoring** - Track code changes with intelligent location updates
 - **Multiple Scenarios** - Use tree forks to explore different execution paths
@@ -98,7 +99,7 @@ Code Path Marker 是一个 VS Code 扩展，帮助开发者通过交互式节点
 ### ⚡ 核心功能
 
 - **交互式节点标记** - 统一"Code Path"子菜单快速标记节点
-- **双重可视化** - 文本 + Mermaid 图表即时切换
+- **文本可视化** - 实时刷新、分层展示的树形视图
 - **多图表管理** - 状态栏快捷菜单快速访问
 - **智能导航** - 模糊匹配和位置追踪
 - **自动位置更新** - 智能代码追踪，多策略搜索
@@ -113,7 +114,7 @@ Code Path Marker 是一个 VS Code 扩展，帮助开发者通过交互式节点
 
 - **调试复杂逻辑** - 可视化执行流程，自动追踪位置变化
 - **代码审查** - 通过导出/导入与团队分享执行路径
-- **编写文档** - 生成 Mermaid 流程图
+- **编写文档** - 通过结构化文本记录执行路径
 - **学习代码** - 交互式导航理解复杂代码库
 - **代码重构** - 智能位置更新追踪代码变化
 - **多场景探索** - 使用树分叉探索不同执行路径

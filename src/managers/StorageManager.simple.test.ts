@@ -88,10 +88,18 @@ describe('StorageManager Core Functionality', () => {
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
+                autoOpenPreviewOnStartup: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: true,
+                    enableSeasonalThemes: true,
+                    customSymbolMode: 'fallback',
+                    customSymbols: [],
+                    customSelectionStrategy: 'daily'
+                }
             };
 
             await storageManager.saveConfiguration(config);
