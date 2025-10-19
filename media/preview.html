@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' {{cspSource}}; img-src {{cspSource}} https: data:; font-src {{cspSource}}; script-src 'nonce-{{nonce}}';">
+    <title>CodePath Preview</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: var(--vscode-panel-background);
+            border-bottom: 1px solid var(--vscode-panel-border);
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .toolbar button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 2px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .toolbar button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .toolbar button.delete-btn {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+
+        .toolbar button.delete-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .toolbar button.delete-btn.danger {
+            background-color: var(--vscode-inputValidation-errorBackground);
+            color: var(--vscode-inputValidation-errorForeground);
+            border: 1px solid var(--vscode-inputValidation-errorBorder);
+        }
+
+        .toolbar button.delete-btn.danger:hover {
+            opacity: 0.8;
+        }
+
+        .format-indicator {
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            text-transform: uppercase;
+        }
+
+        .content {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+        }
+
+        .preview-footer {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            padding: 6px 16px 12px;
+            border-top: 1px solid var(--vscode-panel-border);
+            font-style: italic;
+        }
+
+        .preview-text {
+            white-space: pre-wrap;
+            font-family: var(--vscode-editor-font-family);
+            font-size: var(--vscode-editor-font-size);
+            line-height: 1.2;
+        }
+
+        a.node-link {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        a.node-link:hover {
+            color: var(--vscode-textLink-activeForeground);
+        }
+
+        .preview-mermaid {
+            text-align: center;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--vscode-descriptionForeground);
+            text-align: center;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: var(--vscode-foreground);
+        }
+
+        .node-description {
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+            margin-left: 1em;
+        }
+
+        .edit-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 20px;
+            min-width: 400px;
+            max-width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: none;
+        }
+
+        .edit-panel.visible {
+            display: block;
+        }
+
+        .edit-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        .edit-overlay.visible {
+            display: block;
+        }
+
+        .edit-panel h3 {
+            margin-bottom: 16px;
+            color: var(--vscode-foreground);
+        }
+
+        .edit-field {
+            margin-bottom: 12px;
+        }
+
+        .edit-field label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .edit-field input,
+        .edit-field textarea {
+            width: 100%;
+            padding: 6px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+        }
+
+        .edit-field input:focus,
+        .edit-field textarea:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+        }
+
+        .edit-field textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .edit-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .edit-actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .edit-actions button.primary {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+
+        .edit-actions button.primary:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .edit-actions button.secondary {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+
+        .edit-actions button.secondary:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button id="refresh">🔄 Refresh</button>
+        <button id="exportGraph">📤 Export</button>
+        <button id="editNode">✏️ Edit</button>
+        <button id="deleteNode" class="delete-btn">🗑️ Delete Node</button>
+        <button id="deleteNodeWithChildren" class="delete-btn danger">🗑️ Delete Node & Children</button>
+    </div>
+    
+    <div class="content" id="content">
+        {{content}}
+    </div>
+    <div class="preview-footer">💡 Tip：按住 Ctrl 单击节点可在不切换当前节点的情况下跳转到代码位置。</div>
+
+    <div class="edit-overlay" id="editOverlay"></div>
+    <div class="edit-panel" id="editPanel">
+        <h3>Edit Node</h3>
+        <div class="edit-field">
+            <label for="editName">Name</label>
+            <input type="text" id="editName" />
+        </div>
+        <div class="edit-field">
+            <label for="editLineNumber">Line Number</label>
+            <input type="number" id="editLineNumber" min="1" />
+        </div>
+        <div class="edit-field">
+            <label for="editCodeSnippet">Code Snippet</label>
+            <textarea id="editCodeSnippet"></textarea>
+        </div>
+        <div class="edit-field">
+            <label for="editDescription">Description</label>
+            <textarea id="editDescription" placeholder="Optional description..."></textarea>
+        </div>
+        <div class="edit-actions">
+            <button class="secondary" id="cancelEdit">Cancel</button>
+            <button class="primary" id="saveEdit">Save</button>
+        </div>
+    </div>
+
+    <script nonce="{{nonce}}">
+        console.log('[Webview] Script loaded');
+        const vscode = acquireVsCodeApi();
+        console.log('[Webview] vscode API acquired');
+        
+        document.getElementById('refresh').addEventListener('click', () => {
+            vscode.postMessage({ command: 'refresh' });
+        });
+        
+        document.getElementById('exportGraph').addEventListener('click', () => {
+            vscode.postMessage({ command: 'exportGraph' });
+        });
+        
+        document.getElementById('deleteNode').addEventListener('click', () => {
+            vscode.postMessage({ command: 'deleteCurrentNode' });
+        });
+        
+        document.getElementById('deleteNodeWithChildren').addEventListener('click', () => {
+            vscode.postMessage({ command: 'deleteCurrentNodeWithChildren' });
+        });
+        
+        document.getElementById('editNode').addEventListener('click', () => {
+            vscode.postMessage({ command: 'requestCurrentNodeData' });
+        });
+        
+        document.getElementById('cancelEdit').addEventListener('click', () => {
+            hideEditPanel();
+        });
+        
+        document.getElementById('saveEdit').addEventListener('click', () => {
+            const name = document.getElementById('editName').value;
+            const lineNumber = parseInt(document.getElementById('editLineNumber').value, 10);
+            const codeSnippet = document.getElementById('editCodeSnippet').value;
+            const description = document.getElementById('editDescription').value;
+            
+            console.log('[Webview] Save edit clicked');
+            console.log('[Webview] Raw description value:', JSON.stringify(description));
+            console.log('[Webview] Trimmed description:', JSON.stringify(description.trim()));
+            
+            const trimmedCodeSnippet = codeSnippet.trim();
+            const trimmedDescription = description.trim();
+            
+            const updateData = {
+                name: name,
+                lineNumber: lineNumber,
+                codeSnippet: trimmedCodeSnippet || null,
+                description: trimmedDescription || null
+            };
+            
+            console.log('[Webview] Final description:', updateData.description);
+            console.log('[Webview] Sending update data:', JSON.stringify(updateData));
+            
+            vscode.postMessage({
+                command: 'updateCurrentNode',
+                data: updateData
+            });
+            
+            hideEditPanel();
+        });
+        
+        document.getElementById('editOverlay').addEventListener('click', () => {
+            hideEditPanel();
+        });
+        
+        function showEditPanel(nodeData) {
+            document.getElementById('editName').value = nodeData.name || '';
+            document.getElementById('editLineNumber').value = nodeData.lineNumber || 1;
+            document.getElementById('editCodeSnippet').value = nodeData.codeSnippet || '';
+            document.getElementById('editDescription').value = nodeData.description || '';
+            
+            document.getElementById('editOverlay').classList.add('visible');
+            document.getElementById('editPanel').classList.add('visible');
+        }
+        
+        function hideEditPanel() {
+            document.getElementById('editOverlay').classList.remove('visible');
+            document.getElementById('editPanel').classList.remove('visible');
+        }
+        
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            
+            const clickedElement = e.target;
+            let nodeElement = null;
+            let nodeId = null;
+            
+            if (clickedElement && clickedElement.closest) {
+                const nodeLink = clickedElement.closest('a.node-link');
+                if (nodeLink) {
+                    nodeElement = nodeLink;
+                    const filePath = nodeLink.getAttribute('data-filepath');
+                    const lineNumber = nodeLink.getAttribute('data-linenumber');
+                    if (filePath && lineNumber) {
+                        nodeId = `${filePath}:${lineNumber}`;
+                    }
+                } else {
+                    nodeElement = clickedElement.closest('[data-node-id]');
+                    if (nodeElement) {
+                        nodeId = nodeElement.getAttribute('data-node-id');
+                    }
+                }
+            }
+            
+            vscode.postMessage({
+                command: 'showContextMenu',
+                nodeId: nodeId,
+                x: e.clientX,
+                y: e.clientY
+            });
+        });
+        
+        document.addEventListener('click', (e) => {
+            const link = e.target;
+            if (link && link.tagName === 'A' && link.classList.contains('node-link')) {
+                e.preventDefault();
+                const filePath = link.getAttribute('data-filepath');
+                const lineNumber = link.getAttribute('data-linenumber');
+                const preserveCurrent = e.ctrlKey || e.metaKey;
+                
+                if (filePath && lineNumber) {
+                    vscode.postMessage({
+                        command: 'navigateToNode',
+                        filePath: filePath,
+                        lineNumber: parseInt(lineNumber, 10),
+                        preserveCurrentNode: preserveCurrent
+                    });
+                }
+            }
+        }, false);
+        
+        window.addEventListener('message', event => {
+            const message = event.data;
+            console.log('[Webview] Received message:', message.command);
+            
+            switch (message.command) {
+                case 'updateContent':
+                    console.log('[Webview] Updating content, length:', message.content?.length, 'format:', message.format);
+                    updateContentDisplay(message.content, message.format);
+                    console.log('[Webview] Content updated');
+                    break;
+                case 'showEditPanel':
+                    showEditPanel(message.nodeData);
+                    break;
+            }
+        });
+        
+        function updateContentDisplay(content, format) {
+            console.log('[Webview] updateContentDisplay called');
+            console.log('[Webview] New content preview:', content.substring(0, 200));
+            const contentDiv = document.getElementById('content');
+            const formatIndicator = document.querySelector('.format-indicator');
+            
+            console.log('[Webview] contentDiv:', !!contentDiv, 'formatIndicator:', !!formatIndicator);
+            console.log('[Webview] Current innerHTML length:', contentDiv?.innerHTML?.length);
+            
+            if (formatIndicator) {
+                formatIndicator.textContent = format.toUpperCase();
+            }
+            
+            if (!content) {
+                contentDiv.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No CodePath Selected</h3>
+                        <p>Create or load a CodePath to see the preview.</p>
+                    </div>
+                `;
+            } else if (format === 'mermaid') {
+                contentDiv.innerHTML = `
+                    <div class="preview-mermaid">
+                        <pre><code>${escapeHtml(content)}</code></pre>
+                    </div>
+                `;
+            } else {
+                const htmlContent = convertTextToClickableHtml(content);
+                console.log('[Webview] Generated HTML preview:', htmlContent.substring(0, 200));
+                contentDiv.innerHTML = `
+                    <div class="preview-text">${htmlContent}</div>
+                `;
+                console.log('[Webview] innerHTML updated, new length:', contentDiv.innerHTML.length);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function convertTextToClickableHtml(text) {
+            const lines = text.split('\n');
+            const htmlLines = [];
+            
+            for (const line of lines) {
+                if (line.includes('<i>') && line.includes('</i>')) {
+                    console.log('[Webview] Found description line:', JSON.stringify(line));
+                    const descMatch = line.match(/^(.*?)<i>(.*?)<\/i>$/);
+                    console.log('[Webview] Regex match result:', descMatch);
+                    if (descMatch) {
+                        const [, prefix, descText] = descMatch;
+                        console.log('[Webview] Matched - prefix:', JSON.stringify(prefix), 'text:', JSON.stringify(descText));
+                        htmlLines.push(`${escapeHtml(prefix)}<span class="node-description">${escapeHtml(descText)}</span>`);
+                        continue;
+                    } else {
+                        console.log('[Webview] Regex did not match, escaping line as-is');
+                    }
+                }
+                
+                let match = line.match(/^(.+?)(→|->)\s*(.+?):(\d+)\|([^\s]+)(.*)$/);
+                
+                if (match) {
+                    const [, prefix, arrow, displayPath, lineNumber, fullPath, suffix] = match;
+                    const navigationPath = fullPath.trim();
+                    const label = formatDisplayLabel(displayPath.trim(), navigationPath);
+                    const clickableLocation = `<a href="#" class="node-link" data-filepath="${escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" title="Navigate to ${escapeHtml(navigationPath)}:${lineNumber}">${escapeHtml(label)}:${lineNumber}</a>`;
+                    htmlLines.push(`${escapeHtml(prefix)}${escapeHtml(arrow)} ${clickableLocation}${escapeHtml(suffix)}`);
+                } else {
+                    match = line.match(/^(.+?)(→|->)\s*(.+?):(\d+)(.*)$/);
+                    
+                    if (match) {
+                        const [, prefix, arrow, filePath, lineNumber, suffix] = match;
+                        const navigationPath = filePath.trim();
+                        const label = formatDisplayLabel(filePath.trim(), navigationPath);
+                        const clickableLocation = `<a href="#" class="node-link" data-filepath="${escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" title="Click to navigate">${escapeHtml(label)}:${lineNumber}</a>`;
+                        htmlLines.push(`${escapeHtml(prefix)}${escapeHtml(arrow)} ${clickableLocation}${escapeHtml(suffix)}`);
+                    } else {
+                        htmlLines.push(escapeHtml(stripFullPathSegment(line)));
+                    }
+                }
+            }
+            
+            return htmlLines.join('\n');
+        }
+        
+        function formatDisplayLabel(displayPath, fullPath) {
+            const trimmed = (displayPath || '').trim();
+            if (trimmed && !/[\\/]/.test(trimmed)) {
+                return trimmed;
+            }
+            
+            const normalized = (fullPath || '').replace(/\\/g, '/').replace(/\/+$/g, '');
+            if (!normalized) {
+                return trimmed || fullPath;
+            }
+            
+            const segments = normalized.split('/');
+            const lastSegment = segments[segments.length - 1] || normalized;
+            return lastSegment || trimmed || fullPath;
+        }
+        
+        function stripFullPathSegment(line) {
+            return (line || '').replace(/\|[^\s)]+/g, '');
+        }
+    </script>
+</body>
+</html>

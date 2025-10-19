@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview Main extension entry point for CodePath VS Code extension
  * 
  * This file contains the activation and deactivation logic for the CodePath extension,
@@ -20,6 +20,7 @@ import { CommandManager } from './managers/CommandManager';
 import { StatusBarManager } from './managers/StatusBarManager';
 import { WebviewManager } from './managers/WebviewManager';
 import { IntegrationManager } from './managers/IntegrationManager';
+import { PreviewSidebarProvider } from './views/PreviewSidebarProvider';
 import { RootSymbolService } from './services/RootSymbolService';
 import { CodePathError } from './types/errors';
 
@@ -103,6 +104,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await autoLoadLastGraph();
 
         // Register commands and UI components
+        registerViewProviders(context);
         registerCommands(context);
         setupStatusBar();
 
@@ -299,6 +301,34 @@ async function autoLoadLastGraph(): Promise<void> {
     } catch (error) {
         console.warn('CodePath: Failed to auto-load last graph:', error);
         // This is not a fatal error, we can continue without a loaded graph
+    }
+}
+
+
+/**
+ * 注册所有侧边栏视图提供者
+ */
+function registerViewProviders(context: vscode.ExtensionContext): void {
+    if (!extensionState.webviewManager) {
+        throw new Error('WebviewManager not initialized');
+    }
+
+    try {
+        const sidebarProvider = new PreviewSidebarProvider(extensionState.webviewManager);
+        const registration = vscode.window.registerWebviewViewProvider(
+            PreviewSidebarProvider.viewId,
+            sidebarProvider,
+            {
+                webviewOptions: {
+                    retainContextWhenHidden: true
+                }
+            }
+        );
+
+        extensionState.disposables.push(registration);
+    } catch (error) {
+        console.error('CodePath: Failed to register sidebar preview view:', error);
+        vscode.window.showWarningMessage('CodePath: 无法初始化侧边栏预览视图');
     }
 }
 

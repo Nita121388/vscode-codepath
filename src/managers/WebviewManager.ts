@@ -1,4 +1,5 @@
-import * as vscode from 'vscode';
+﻿import * as vscode from 'vscode';
+import { readFileSync } from 'fs';
 import { IWebviewManager, WebviewConfig } from '../interfaces/IWebviewManager';
 import { ViewFormat } from '../types';
 import { LocationTracker } from './LocationTracker';
@@ -10,6 +11,7 @@ import { INodeManager } from '../interfaces/INodeManager';
  */
 export class WebviewManager implements IWebviewManager {
     private panel: vscode.WebviewPanel | null = null;
+    private view: vscode.WebviewView | null = null;
     private context: vscode.ExtensionContext;
     private currentContent: string = '';
     private currentFormat: ViewFormat = 'text';
@@ -71,11 +73,13 @@ export class WebviewManager implements IWebviewManager {
         );
 
         // Set up message handling
-        this.setupMessageHandling();
+        this.setupMessageHandling(this.panel.webview);
 
         // Set up disposal handling
         this.panel.onDidDispose(() => {
-            this.panel = null;
+            if (this.panel) {
+                this.panel = null;
+            }
         });
 
         // Initial content update
@@ -92,6 +96,30 @@ export class WebviewManager implements IWebviewManager {
         }
     }
 
+    /**
+     * Attaches the manager to a sidebar webview view
+     */
+    public attachView(webviewView: vscode.WebviewView): void {
+        this.view = webviewView;
+        this.view.webview.options = {
+            enableScripts: this.config.enableScripts,
+            localResourceRoots: [
+                vscode.Uri.joinPath(this.context.extensionUri, 'media')
+            ]
+        };
+
+        this.setupMessageHandling(webviewView.webview);
+
+        webviewView.onDidDispose(() => {
+            if (this.view === webviewView) {
+                this.view = null;
+            }
+        });
+
+        const html = this.generateWebviewHtml(webviewView.webview);
+        webviewView.webview.html = html;
+    }
+
     private lastUpdateTime: number = 0;
     private readonly UPDATE_THROTTLE_MS = 100; // 节流：最多每100ms更新一次
 
@@ -106,8 +134,8 @@ export class WebviewManager implements IWebviewManager {
         } else {
             console.log('[WebviewManager] updateContent called, content length:', content.length);
         }
-        
-        // 检查内容是否真的变化了（除非是强制更新）
+
+        // 检查内容是否真的发生变化（除非是强制更新）
         if (!force && this.currentContent === content && this.currentFormat === format) {
             console.log('[WebviewManager] Content unchanged, skipping');
             return; // 内容没变，不更新
@@ -124,26 +152,30 @@ export class WebviewManager implements IWebviewManager {
         }
 
         console.log('[WebviewManager] Updating webview, force:', force);
-        console.log('[WebviewManager] Panel exists:', !!this.panel, 'visible:', this.panel?.visible, 'active:', this.panel?.active);
+        console.log('[WebviewManager] Panel exists:', !!this.panel, 'visible:', this.panel?.visible, 'active:', this.panel?.active, 'View exists:', !!this.view);
         this.currentContent = content;
         this.currentFormat = format;
         this.lastUpdateTime = Date.now();
 
+        const message = {
+            command: 'updateContent',
+            content,
+            format
+        };
+
         if (this.panel) {
-            if (this.panel.visible) {
-                console.log('[WebviewManager] Posting message to webview');
-                // 只在面板可见时更新
-                const result = this.panel.webview.postMessage({
-                    command: 'updateContent',
-                    content: content,
-                    format: format
-                });
-                console.log('[WebviewManager] postMessage result:', result);
-            } else {
-                console.log('[WebviewManager] Panel exists but not visible!');
-            }
+            console.log('[WebviewManager] Posting message to panel webview');
+            const result = this.panel.webview.postMessage(message);
+            console.log('[WebviewManager] Panel postMessage result:', result);
         } else {
             console.log('[WebviewManager] Panel does not exist!');
+        }
+
+        if (this.view) {
+            console.log('[WebviewManager] Posting message to sidebar webview');
+            this.view.webview.postMessage(message);
+        } else {
+            console.log('[WebviewManager] Sidebar view does not exist or not resolved yet');
         }
     }
 
@@ -355,7 +387,7 @@ export class WebviewManager implements IWebviewManager {
         
         if (updatedCount === 0 && warningCount === 0) {
             // All nodes are valid
-            vscode.window.showInformationMessage(`✅ All ${validCount} nodes are valid`);
+            vscode.window.showInformationMessage(`鉁?All ${validCount} nodes are valid`);
             return;
         }
         
@@ -363,28 +395,28 @@ export class WebviewManager implements IWebviewManager {
         const messages: string[] = [];
         
         if (validCount > 0) {
-            messages.push(`✅ ${validCount} valid`);
+            messages.push(`鉁?${validCount} valid`);
         }
         
         if (updatedCount > 0) {
-            messages.push(`🔄 ${updatedCount} updated`);
+            messages.push(`馃攧 ${updatedCount} updated`);
             const updatedNodes = results.filter(r => r.result === 'updated');
             for (const node of updatedNodes.slice(0, 3)) { // Show first 3
-                messages.push(`  • ${node.nodeName}: line ${node.oldLine} → ${node.newLine}`);
+                messages.push(`  鈥?${node.nodeName}: line ${node.oldLine} 鈫?${node.newLine}`);
             }
             if (updatedNodes.length > 3) {
-                messages.push(`  • ... and ${updatedNodes.length - 3} more`);
+                messages.push(`  鈥?... and ${updatedNodes.length - 3} more`);
             }
         }
         
         if (warningCount > 0) {
-            messages.push(`⚠️ ${warningCount} warnings`);
+            messages.push(`鈿狅笍 ${warningCount} warnings`);
             const warningNodes = results.filter(r => r.result === 'warning');
             for (const node of warningNodes.slice(0, 3)) { // Show first 3
-                messages.push(`  • ${node.nodeName}: ${node.message}`);
+                messages.push(`  鈥?${node.nodeName}: ${node.message}`);
             }
             if (warningNodes.length > 3) {
-                messages.push(`  • ... and ${warningNodes.length - 3} more`);
+                messages.push(`  鈥?... and ${warningNodes.length - 3} more`);
             }
         }
         
@@ -515,14 +547,14 @@ export class WebviewManager implements IWebviewManager {
             }
             console.log(`[WebviewManager] Resolved path: ${resolvedPath}`);
 
-            // 检查是否为目录，目录无法直接打开文件
+            // 妫€鏌ユ槸鍚︿负鐩綍锛岀洰褰曟棤娉曠洿鎺ユ墦寮€鏂囦欢
             try {
                 const uri = vscode.Uri.file(resolvedPath);
                 const stat = await vscode.workspace.fs.stat(uri);
                 if ((stat.type & vscode.FileType.Directory) !== 0) {
                     console.log('[WebviewManager] Target is directory, reveal in explorer instead of opening');
                     await vscode.commands.executeCommand('revealInExplorer', uri);
-                    vscode.window.showInformationMessage(`已在资源管理器中定位目录：${resolvedPath}`);
+                    vscode.window.showInformationMessage(`宸插湪璧勬簮绠＄悊鍣ㄤ腑瀹氫綅鐩綍锛?{resolvedPath}`);
                     return;
                 }
             } catch (error) {
@@ -570,14 +602,14 @@ export class WebviewManager implements IWebviewManager {
                     // For failed validation, show a different message
                     if (result.confidence === 'failed') {
                         const choice = await vscode.window.showWarningMessage(
-                            `⚠️ ${result.message}. You can edit the node to update its location.`,
+                            `鈿狅笍 ${result.message}. You can edit the node to update its location.`,
                             'Edit Node',
                             'Dismiss'
                         );
                         
                         // If user clicks Edit Node, open the edit panel
-                        if (choice === 'Edit Node' && this.panel) {
-                            this.panel.webview.postMessage({ command: 'requestCurrentNodeData' });
+                        if (choice === 'Edit Node') {
+                            this.postMessageToAll({ command: 'requestCurrentNodeData' });
                         }
                     } else {
                         // For other confidence levels, offer to update location
@@ -693,10 +725,8 @@ export class WebviewManager implements IWebviewManager {
     /**
      * Sets up message handling for webview communication
      */
-    private setupMessageHandling(): void {
-        if (!this.panel) { return; }
-
-        this.panel.webview.onDidReceiveMessage(
+    private setupMessageHandling(webview: vscode.Webview): void {
+        webview.onDidReceiveMessage(
             async (message) => {
                 switch (message.command) {
                     case 'refresh':
@@ -730,7 +760,7 @@ export class WebviewManager implements IWebviewManager {
                         }
                         break;
                     case 'requestCurrentNodeData':
-                        await this.sendCurrentNodeData();
+                        await this.sendCurrentNodeData(webview);
                         break;
                     case 'updateCurrentNode':
                         if (this.onUpdateCurrentNodeCallback) {
@@ -756,13 +786,13 @@ export class WebviewManager implements IWebviewManager {
 
             // Build menu items based on context
             const items: vscode.QuickPickItem[] = [
-                { 
-                    label: '🔄 刷新', 
+                {
+                    label: '🔄 刷新',
                     description: 'Refresh preview content',
                     detail: 'Reload and validate all node locations'
                 },
-                { 
-                    label: '📤 导出', 
+                {
+                    label: '📤 导出',
                     description: 'Export graph',
                     detail: 'Export current graph to file'
                 }
@@ -771,36 +801,36 @@ export class WebviewManager implements IWebviewManager {
             // Add node-specific operations if a valid node is found
             if (hasValidNode && this.isNodeOperationAvailable()) {
                 items.push(
-                    { 
-                        label: '📋 复制', 
+                    {
+                        label: '📋 复制',
                         description: 'Copy node and children',
                         detail: 'Copy the selected node and all its children to clipboard'
                     },
-                    { 
-                        label: '📄 粘贴', 
+                    {
+                        label: '📥 粘贴',
                         description: 'Paste node',
                         detail: 'Paste node from clipboard as child of current node'
                     },
-                    { 
-                        label: '✂️ 剪切', 
+                    {
+                        label: '✂️ 剪切',
                         description: 'Cut node and children',
                         detail: 'Move the selected node and all its children to clipboard'
                     },
-                    { 
-                        label: '⬆️ 上移', 
+                    {
+                        label: '⬆️ 上移',
                         description: 'Move node up',
                         detail: 'Move node up in the sibling order'
                     },
-                    { 
-                        label: '⬇️ 下移', 
+                    {
+                        label: '⬇️ 下移',
                         description: 'Move node down',
                         detail: 'Move node down in the sibling order'
                     }
                 );
             } else if (await this.hasClipboardData()) {
                 // Show paste option even without node selection if clipboard has data
-                items.push({ 
-                    label: '📄 粘贴', 
+                items.push({
+                    label: '📥 粘贴',
                     description: 'Paste node',
                     detail: 'Paste node from clipboard as new root node'
                 });
@@ -809,8 +839,8 @@ export class WebviewManager implements IWebviewManager {
             // Show the quick pick menu
             const selected = await vscode.window.showQuickPick(items, {
                 placeHolder: hasValidNode ? 
-                    `选择操作 (Node: ${actualNode?.name || 'Unknown'})` : 
-                    '选择操作 (Select Action)',
+                    `请选择操作 (节点: ${actualNode?.name || 'Unknown'})` : 
+                    '请选择操作 (Select Action)',
                 matchOnDescription: true,
                 matchOnDetail: true
             });
@@ -957,8 +987,13 @@ export class WebviewManager implements IWebviewManager {
     /**
      * Sends current node data to webview for editing
      */
-    private async sendCurrentNodeData(): Promise<void> {
-        if (!this.getCurrentGraphCallback || !this.panel) {
+    private async sendCurrentNodeData(target?: vscode.Webview): Promise<void> {
+        if (!this.getCurrentGraphCallback) {
+            return;
+        }
+
+        const destination = target ?? this.panel?.webview ?? this.view?.webview;
+        if (!destination) {
             return;
         }
 
@@ -979,7 +1014,7 @@ export class WebviewManager implements IWebviewManager {
             return;
         }
 
-        this.panel.webview.postMessage({
+        destination.postMessage({
             command: 'showEditPanel',
             nodeData: {
                 name: currentNode.name,
@@ -990,554 +1025,38 @@ export class WebviewManager implements IWebviewManager {
         });
     }
 
+    private postMessageToAll(message: any): void {
+        if (this.panel) {
+            this.panel.webview.postMessage(message);
+        }
+        if (this.view) {
+            this.view.webview.postMessage(message);
+        }
+    }
+
     /**
      * Updates the webview HTML content
      */
     private async updateWebviewContent(): Promise<void> {
         if (!this.panel) { return; }
 
-        const html = this.generateWebviewHtml();
+        const html = this.generateWebviewHtml(this.panel.webview);
         this.panel.webview.html = html;
     }
 
     /**
      * Generates the HTML content for the webview
      */
-    private generateWebviewHtml(): string {
+    private generateWebviewHtml(webview: vscode.Webview): string {
         const nonce = this.getNonce();
+        const templateUri = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'preview.html');
+        let html = readFileSync(templateUri.fsPath, 'utf8');
 
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
-    <title>CodePath Preview</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        html = html.replace(/{{nonce}}/g, nonce);
+        html = html.replace(/{{cspSource}}/g, webview.cspSource);
+        html = html.replace('{{content}}', this.renderContent());
 
-        body {
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-            color: var(--vscode-foreground);
-            background-color: var(--vscode-editor-background);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .toolbar {
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            background-color: var(--vscode-panel-background);
-            border-bottom: 1px solid var(--vscode-panel-border);
-            gap: 8px;
-            flex-shrink: 0;
-        }
-
-        .toolbar button {
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            padding: 6px 12px;
-            border-radius: 2px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-
-        .toolbar button:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-
-        .toolbar button.delete-btn {
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-        }
-
-        .toolbar button.delete-btn:hover {
-            background-color: var(--vscode-button-secondaryHoverBackground);
-        }
-
-        .toolbar button.delete-btn.danger {
-            background-color: var(--vscode-inputValidation-errorBackground);
-            color: var(--vscode-inputValidation-errorForeground);
-            border: 1px solid var(--vscode-inputValidation-errorBorder);
-        }
-
-        .toolbar button.delete-btn.danger:hover {
-            opacity: 0.8;
-        }
-
-        .format-indicator {
-            margin-left: auto;
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
-        }
-
-        .content {
-            flex: 1;
-            overflow: auto;
-            padding: 16px;
-        }
-
-        .preview-footer {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            padding: 6px 16px 12px;
-            border-top: 1px solid var(--vscode-panel-border);
-            font-style: italic;
-        }
-
-        .preview-text {
-            white-space: pre-wrap;
-            font-family: var(--vscode-editor-font-family);
-            font-size: var(--vscode-editor-font-size);
-            line-height: 1.2;
-        }
-
-        a.node-link {
-            color: var(--vscode-textLink-foreground);
-            text-decoration: underline;
-            cursor: pointer;
-        }
-
-        a.node-link:hover {
-            color: var(--vscode-textLink-activeForeground);
-        }
-
-        .preview-mermaid {
-            text-align: center;
-        }
-
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: var(--vscode-descriptionForeground);
-            text-align: center;
-        }
-
-        .empty-state h3 {
-            margin-bottom: 8px;
-            color: var(--vscode-foreground);
-        }
-
-        .node-description {
-            color: var(--vscode-descriptionForeground);
-            font-style: italic;
-            margin-left: 1em;
-        }
-
-        .edit-panel {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            padding: 20px;
-            min-width: 400px;
-            max-width: 600px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            display: none;
-        }
-
-        .edit-panel.visible {
-            display: block;
-        }
-
-        .edit-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-            display: none;
-        }
-
-        .edit-overlay.visible {
-            display: block;
-        }
-
-        .edit-panel h3 {
-            margin-bottom: 16px;
-            color: var(--vscode-foreground);
-        }
-
-        .edit-field {
-            margin-bottom: 12px;
-        }
-
-        .edit-field label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 12px;
-            color: var(--vscode-descriptionForeground);
-        }
-
-        .edit-field input,
-        .edit-field textarea {
-            width: 100%;
-            padding: 6px 8px;
-            background-color: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 2px;
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-        }
-
-        .edit-field input:focus,
-        .edit-field textarea:focus {
-            outline: 1px solid var(--vscode-focusBorder);
-        }
-
-        .edit-field textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
-
-        .edit-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            margin-top: 16px;
-        }
-
-        .edit-actions button {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .edit-actions button.primary {
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-        }
-
-        .edit-actions button.primary:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-
-        .edit-actions button.secondary {
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-        }
-
-        .edit-actions button.secondary:hover {
-            background-color: var(--vscode-button-secondaryHoverBackground);
-        }
-    </style>
-</head>
-<body>
-    <div class="toolbar">
-        <button id="refresh">🔄 Refresh</button>
-        <button id="exportGraph">📤 Export</button>
-        <button id="editNode">✏️ Edit</button>
-        <button id="deleteNode" class="delete-btn">🗑️ Delete Node</button>
-        <button id="deleteNodeWithChildren" class="delete-btn danger">🗑️ Delete Node & Children</button>
-    </div>
-    
-    <div class="content" id="content">
-        ${this.renderContent()}
-    </div>
-    <div class="preview-footer">💡 Tip：按住 Ctrl 单击节点可在不切换当前节点的情况下跳转到代码位置。</div>
-
-    <div class="edit-overlay" id="editOverlay"></div>
-    <div class="edit-panel" id="editPanel">
-        <h3>Edit Node</h3>
-        <div class="edit-field">
-            <label for="editName">Name</label>
-            <input type="text" id="editName" />
-        </div>
-        <div class="edit-field">
-            <label for="editLineNumber">Line Number</label>
-            <input type="number" id="editLineNumber" min="1" />
-        </div>
-        <div class="edit-field">
-            <label for="editCodeSnippet">Code Snippet</label>
-            <textarea id="editCodeSnippet"></textarea>
-        </div>
-        <div class="edit-field">
-            <label for="editDescription">Description</label>
-            <textarea id="editDescription" placeholder="Optional description..."></textarea>
-        </div>
-        <div class="edit-actions">
-            <button class="secondary" id="cancelEdit">Cancel</button>
-            <button class="primary" id="saveEdit">Save</button>
-        </div>
-    </div>
-
-    <script nonce="${nonce}">
-        console.log('[Webview] Script loaded');
-        const vscode = acquireVsCodeApi();
-        console.log('[Webview] vscode API acquired');
-        
-        document.getElementById('refresh').addEventListener('click', () => {
-            vscode.postMessage({ command: 'refresh' });
-        });
-        
-        document.getElementById('exportGraph').addEventListener('click', () => {
-            vscode.postMessage({ command: 'exportGraph' });
-        });
-        
-        document.getElementById('deleteNode').addEventListener('click', () => {
-            vscode.postMessage({ command: 'deleteCurrentNode' });
-        });
-        
-        document.getElementById('deleteNodeWithChildren').addEventListener('click', () => {
-            vscode.postMessage({ command: 'deleteCurrentNodeWithChildren' });
-        });
-        
-        document.getElementById('editNode').addEventListener('click', () => {
-            vscode.postMessage({ command: 'requestCurrentNodeData' });
-        });
-        
-        document.getElementById('cancelEdit').addEventListener('click', () => {
-            hideEditPanel();
-        });
-        
-        document.getElementById('saveEdit').addEventListener('click', () => {
-            const name = document.getElementById('editName').value;
-            const lineNumber = parseInt(document.getElementById('editLineNumber').value, 10);
-            const codeSnippet = document.getElementById('editCodeSnippet').value;
-            const description = document.getElementById('editDescription').value;
-            
-            console.log('[Webview] Save edit clicked');
-            console.log('[Webview] Raw description value:', JSON.stringify(description));
-            console.log('[Webview] Trimmed description:', JSON.stringify(description.trim()));
-            
-            // Use null instead of undefined so it's preserved in JSON serialization
-            const trimmedCodeSnippet = codeSnippet.trim();
-            const trimmedDescription = description.trim();
-            
-            const updateData = {
-                name: name,
-                lineNumber: lineNumber,
-                codeSnippet: trimmedCodeSnippet || null,
-                description: trimmedDescription || null
-            };
-            
-            console.log('[Webview] Final description:', updateData.description);
-            console.log('[Webview] Sending update data:', JSON.stringify(updateData));
-            
-            vscode.postMessage({
-                command: 'updateCurrentNode',
-                data: updateData
-            });
-            
-            hideEditPanel();
-        });
-        
-        document.getElementById('editOverlay').addEventListener('click', () => {
-            hideEditPanel();
-        });
-        
-        function showEditPanel(nodeData) {
-            document.getElementById('editName').value = nodeData.name || '';
-            document.getElementById('editLineNumber').value = nodeData.lineNumber || 1;
-            document.getElementById('editCodeSnippet').value = nodeData.codeSnippet || '';
-            document.getElementById('editDescription').value = nodeData.description || '';
-            
-            document.getElementById('editOverlay').classList.add('visible');
-            document.getElementById('editPanel').classList.add('visible');
-        }
-        
-        function hideEditPanel() {
-            document.getElementById('editOverlay').classList.remove('visible');
-            document.getElementById('editPanel').classList.remove('visible');
-        }
-        
-        // Add context menu handler for custom preview menu
-        document.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            
-            // Get clicked element and find the closest node
-            const clickedElement = e.target;
-            let nodeElement = null;
-            let nodeId = null;
-            
-            // Look for node-related elements (links with data-filepath or elements with data-node-id)
-            if (clickedElement && clickedElement.closest) {
-                // First try to find a node link
-                const nodeLink = clickedElement.closest('a.node-link');
-                if (nodeLink) {
-                    nodeElement = nodeLink;
-                    // For node links, we can derive a nodeId from the filepath and line
-                    const filePath = nodeLink.getAttribute('data-filepath');
-                    const lineNumber = nodeLink.getAttribute('data-linenumber');
-                    if (filePath && lineNumber) {
-                        // Create a pseudo nodeId for context menu operations
-                        nodeId = \`\${filePath}:\${lineNumber}\`;
-                    }
-                } else {
-                    // Try to find any element with data-node-id attribute
-                    nodeElement = clickedElement.closest('[data-node-id]');
-                    if (nodeElement) {
-                        nodeId = nodeElement.getAttribute('data-node-id');
-                    }
-                }
-            }
-            
-            // Send message to extension to show context menu
-            vscode.postMessage({
-                command: 'showContextMenu',
-                nodeId: nodeId,
-                x: e.clientX,
-                y: e.clientY
-            });
-        });
-        
-        // Add click handler for node navigation
-        document.addEventListener('click', (e) => {
-            const link = e.target;
-            if (link && link.tagName === 'A' && link.classList.contains('node-link')) {
-                e.preventDefault();
-                const filePath = link.getAttribute('data-filepath');
-                const lineNumber = link.getAttribute('data-linenumber');
-                const preserveCurrent = e.ctrlKey || e.metaKey;
-                
-                if (filePath && lineNumber) {
-                    vscode.postMessage({
-                        command: 'navigateToNode',
-                        filePath: filePath,
-                        lineNumber: parseInt(lineNumber, 10),
-                        preserveCurrentNode: preserveCurrent
-                    });
-                }
-            }
-        }, false);
-        
-        // Listen for content updates from extension
-        window.addEventListener('message', event => {
-            const message = event.data;
-            console.log('[Webview] Received message:', message.command);
-            
-            switch (message.command) {
-                case 'updateContent':
-                    console.log('[Webview] Updating content, length:', message.content?.length, 'format:', message.format);
-                    updateContentDisplay(message.content, message.format);
-                    console.log('[Webview] Content updated');
-                    break;
-                case 'showEditPanel':
-                    showEditPanel(message.nodeData);
-                    break;
-            }
-        });
-        
-        // Function to update content without reloading page
-        function updateContentDisplay(content, format) {
-            console.log('[Webview] updateContentDisplay called');
-            console.log('[Webview] New content preview:', content.substring(0, 200));
-            const contentDiv = document.getElementById('content');
-            const formatIndicator = document.querySelector('.format-indicator');
-            
-            console.log('[Webview] contentDiv:', !!contentDiv, 'formatIndicator:', !!formatIndicator);
-            console.log('[Webview] Current innerHTML length:', contentDiv?.innerHTML?.length);
-            
-            // Update format indicator
-            if (formatIndicator) {
-                formatIndicator.textContent = format.toUpperCase();
-            }
-            
-            // Update content
-            if (!content) {
-                contentDiv.innerHTML = \`
-                    <div class="empty-state">
-                        <h3>No CodePath Selected</h3>
-                        <p>Create or load a CodePath to see the preview.</p>
-                    </div>
-                \`;
-            } else if (format === 'mermaid') {
-                contentDiv.innerHTML = \`
-                    <div class="preview-mermaid">
-                        <pre><code>\${escapeHtml(content)}</code></pre>
-                    </div>
-                \`;
-            } else {
-                const htmlContent = convertTextToClickableHtml(content);
-                console.log('[Webview] Generated HTML preview:', htmlContent.substring(0, 200));
-                contentDiv.innerHTML = \`
-                    <div class="preview-text">\${htmlContent}</div>
-                \`;
-                console.log('[Webview] innerHTML updated, new length:', contentDiv.innerHTML.length);
-            }
-        }
-        
-        // Helper function to escape HTML
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        // Helper function to convert text to clickable HTML
-        function convertTextToClickableHtml(text) {
-            const lines = text.split('\\n');
-            const htmlLines = [];
-            
-            for (const line of lines) {
-                // Check if line is a description (starts with <i> and ends with </i>)
-                if (line.includes('<i>') && line.includes('</i>')) {
-                    console.log('[Webview] Found description line:', JSON.stringify(line));
-                    // Extract description text and apply styling
-                    // Match any characters before <i>, not just whitespace (to handle tree symbols like │)
-                    const descMatch = line.match(/^(.*?)<i>(.*?)<\\/i>$/);
-                    console.log('[Webview] Regex match result:', descMatch);
-                    if (descMatch) {
-                        const [, prefix, descText] = descMatch;
-                        console.log('[Webview] Matched - prefix:', JSON.stringify(prefix), 'text:', JSON.stringify(descText));
-                        htmlLines.push(\`\${escapeHtml(prefix)}<span class="node-description">\${escapeHtml(descText)}</span>\`);
-                        continue;
-                    } else {
-                        console.log('[Webview] Regex did not match, escaping line as-is');
-                    }
-                }
-                
-                // Try new format first: fileName:lineNumber|fullPath
-                let match = line.match(/^(.+?)(→|->)\\s*(.+?):(\\d+)\\|([^\\s]+)(.*)$/);
-                
-                if (match) {
-                    // New format with pipe separator
-                    const [, prefix, arrow, displayPath, lineNumber, fullPath, suffix] = match;
-                    const navigationPath = fullPath.trim();
-                    const displayText = displayPath.trim();
-                    const clickableLocation = \`<a href="#" class="node-link" data-filepath="\${escapeHtml(navigationPath)}" data-linenumber="\${lineNumber}" title="Navigate to \${escapeHtml(navigationPath)}:\${lineNumber}">\${escapeHtml(displayText)}:\${lineNumber}</a>\`;
-                    htmlLines.push(\`\${escapeHtml(prefix)}\${escapeHtml(arrow)} \${clickableLocation}\${escapeHtml(suffix)}\`);
-                } else {
-                    // Try old format: fullPath:lineNumber
-                    match = line.match(/^(.+?)(→|->)\\s*(.+?):(\\d+)(.*)$/);
-                    
-                    if (match) {
-                        const [, prefix, arrow, filePath, lineNumber, suffix] = match;
-                        const clickableLocation = \`<a href="#" class="node-link" data-filepath="\${escapeHtml(filePath.trim())}" data-linenumber="\${lineNumber}" title="Click to navigate">\${escapeHtml(filePath)}:\${lineNumber}</a>\`;
-                        htmlLines.push(\`\${escapeHtml(prefix)}\${escapeHtml(arrow)} \${clickableLocation}\${escapeHtml(suffix)}\`);
-                    } else {
-                        htmlLines.push(escapeHtml(line));
-                    }
-                }
-            }
-            
-            return htmlLines.join('\\n');
-        }
-    </script>
-</body>
-</html>`;
+        return html;
     }
 
     /**
@@ -1576,60 +1095,64 @@ export class WebviewManager implements IWebviewManager {
         const lines = text.split('\n');
         const htmlLines: string[] = [];
 
-        for (const line of lines) {
-            // Check if line is a description (contains <i> tags)
+        for (const rawLine of lines) {
+            const line = rawLine ?? '';
+
             if (line.includes('<i>') && line.includes('</i>')) {
-                console.log('[WebviewManager Server] Found description line:', JSON.stringify(line));
-                // Extract description text and apply styling
                 const descMatch = line.match(/^(.*?)<i>(.*?)<\/i>$/);
-                console.log('[WebviewManager Server] Regex match:', descMatch);
                 if (descMatch) {
                     const [, prefix, descText] = descMatch;
-                    console.log('[WebviewManager Server] Matched - prefix:', JSON.stringify(prefix), 'text:', JSON.stringify(descText));
                     htmlLines.push(`${this.escapeHtml(prefix)}<span class="node-description">${this.escapeHtml(descText)}</span>`);
                     continue;
-                } else {
-                    console.log('[WebviewManager Server] Regex did not match');
                 }
             }
-            
-            // Pattern to match: "anything → location:lineNumber|fullPath (rest)"
-            // First try to match the new format with pipe separator
+
             let match = line.match(/^(.+?)(→|->)\s*(.+?):(\d+)\|([^\s]+)(.*)$/);
-            
             if (match) {
-                // New format: fileName:lineNumber|fullPath
                 const [, prefix, arrow, displayPath, lineNumber, fullPath, suffix] = match;
-                
                 const navigationPath = fullPath.trim();
-                const displayText = displayPath.trim();
-                
-                // Create a node identifier for context menu operations
+                const label = this.getDisplayLabel(displayPath.trim(), navigationPath);
                 const nodeId = `${navigationPath}:${lineNumber}`;
-                
-                // Make the location part clickable using <a> tag with node identification
-                const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" data-node-id="${this.escapeHtml(nodeId)}" title="单击跳转到 ${this.escapeHtml(navigationPath)}:${lineNumber}；按住 Ctrl 单击保持当前节点">${this.escapeHtml(displayText)}:${lineNumber}</a>`;
+                const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" data-node-id="${this.escapeHtml(nodeId)}" title="单击跳转到${this.escapeHtml(navigationPath)}:${lineNumber}；按下Ctrl 单击保持当前节点">${this.escapeHtml(label)}:${lineNumber}</a>`;
                 htmlLines.push(`${this.escapeHtml(prefix)}${this.escapeHtml(arrow)} ${clickableLocation}${this.escapeHtml(suffix)}`);
-            } else {
-                // Try old format: fullPath:lineNumber (backward compatible)
-                match = line.match(/^(.+?)(→|->)\s*(.+?):(\d+)(.*)$/);
-                
-                if (match) {
-                    const [, prefix, arrow, filePath, lineNumber, suffix] = match;
-                    
-                    // Create a node identifier for context menu operations
-                    const nodeId = `${filePath.trim()}:${lineNumber}`;
-                    
-                    // Make the location part clickable using <a> tag with node identification
-                    const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(filePath.trim())}" data-linenumber="${lineNumber}" data-node-id="${this.escapeHtml(nodeId)}" title="单击跳转到 ${this.escapeHtml(filePath)}:${lineNumber}；按住 Ctrl 单击保持当前节点">${this.escapeHtml(filePath)}:${lineNumber}</a>`;
-                    htmlLines.push(`${this.escapeHtml(prefix)}${this.escapeHtml(arrow)} ${clickableLocation}${this.escapeHtml(suffix)}`);
-                } else {
-                    htmlLines.push(this.escapeHtml(line));
-                }
+                continue;
             }
+
+            match = line.match(/^(.+?)(→|->)\s*(.+?):(\d+)(.*)$/);
+            if (match) {
+                const [, prefix, arrow, filePath, lineNumber, suffix] = match;
+                const navigationPath = filePath.trim();
+                const label = this.getDisplayLabel(filePath.trim(), navigationPath);
+                const nodeId = `${navigationPath}:${lineNumber}`;
+                const clickableLocation = `<a href="#" class="node-link" data-filepath="${this.escapeHtml(navigationPath)}" data-linenumber="${lineNumber}" data-node-id="${this.escapeHtml(nodeId)}" title="单击跳转到${this.escapeHtml(navigationPath)}:${lineNumber}；按下Ctrl 单击保持当前节点">${this.escapeHtml(label)}:${lineNumber}</a>`;
+                htmlLines.push(`${this.escapeHtml(prefix)}${this.escapeHtml(arrow)} ${clickableLocation}${this.escapeHtml(suffix)}`);
+                continue;
+            }
+
+            htmlLines.push(this.escapeHtml(this.stripFullPathSegment(line)));
         }
 
         return htmlLines.join('\n');
+    }
+
+    private getDisplayLabel(displayPath: string, fullPath: string): string {
+        const trimmed = displayPath.trim();
+        if (trimmed && !/[\\/]/.test(trimmed)) {
+            return trimmed;
+        }
+
+        const normalized = fullPath.replace(/\\/g, '/').replace(/\/+$/g, '');
+        if (!normalized) {
+            return trimmed || fullPath;
+        }
+
+        const segments = normalized.split('/');
+        const lastSegment = segments[segments.length - 1] || normalized;
+        return lastSegment || trimmed || fullPath;
+    }
+
+    private stripFullPathSegment(line: string): string {
+        return line.replace(/\|[^\s)]+/g, '');
     }
 
     /**

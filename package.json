@@ -39,6 +39,25 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codepath",
+          "title": "CodePath",
+          "icon": "images/1faa7.svg"
+        }
+      ]
+    },
+    "views": {
+      "codepath": [
+        {
+          "id": "codepath.previewView",
+          "name": "预览",
+          "type": "webview",
+          "contextualTitle": "CodePath 预览"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "codepath.createNode",
