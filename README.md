@@ -14,7 +14,15 @@
 
 ## English
 
-Code Path Marker is a VS Code extension that helps developers visualize and mark code execution paths through interactive node-based graphs. Create, manage, and navigate through your code flow using both text and visual diagram representations.
+Code Path Marker is a VS Code extension that helps developers visualize and bookmark code execution paths via an interactive node diagram. It supports creating, managing, and navigating code flows.
+
+By reconstructing the execution path in a visual node graph, it assists with debugging, code review, and knowledge sharing.
+
+**Note**: The extension is still in beta; its APIs, documentation, and data structures may change frequently. Feedback on issues and suggestions for improvement are welcome.
+
+<p align="center">
+  <img src="docs/assets/demos.png" alt="Code Path Marker demo preview" width="720">
+</p>
 
 ### 🚀 Quick Start
 
@@ -22,7 +30,7 @@ Code Path Marker is a VS Code extension that helps developers visualize and mark
 2. **Select Code**: Highlight any code in your editor
 3. **Right-click**: Choose "Code Path" → "Mark as New Node" from context menu
 4. **Build Path**: Add child/parent nodes to create execution flow
-5. **Visualize**: View your code path in text or diagram format
+5. **Visualize**: View your code path in text
 
 ### 📖 Documentation
 
@@ -60,7 +68,15 @@ Code Path Marker is a VS Code extension that helps developers visualize and mark
 
 ## 中文
 
-Code Path Marker 是一个 VS Code 扩展，帮助开发者通过交互式节点图表可视化和标记代码执行路径。支持创建、管理和导航代码流程，提供文本和可视化图表两种展示方式。
+Code Path Marker 是一个 VS Code 扩展，帮助开发者通过交互式节点图表可视化和标记代码执行路径。支持创建、管理和导航代码流程。
+
+通过可视化节点图谱还原代码执行路径，辅助调试、代码审查与知识传递。
+
+**注意**：插件当前仍处于测试阶段，功能接口、文档、数据结构可能会频繁调整，欢迎反馈体验问题与改进建议。
+
+<p align="center">
+  <img src="docs/assets/demos.png" alt="Code Path Marker 使用演示" width="720">
+</p>
 
 ### 🚀 快速开始
 

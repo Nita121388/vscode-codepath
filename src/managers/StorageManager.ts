@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { Configuration } from '../types';
+import { Configuration, RootSymbolPreferences } from '../types';
 import { Graph } from '../models/Graph';
 import { IStorageManager } from '../interfaces/IStorageManager';
 import { Graph as GraphModel } from '../models/Graph';
@@ -71,21 +71,42 @@ export class StorageManager implements IStorageManager {
     }
 
     /**
+     * 获取根节点符号的默认配置
+     */
+    private getDefaultRootSymbolPreferences(): RootSymbolPreferences {
+        return {
+            enableHolidayThemes: true,
+            enableSeasonalThemes: true,
+            customSymbolMode: 'fallback',
+            customSymbols: [],
+            customSelectionStrategy: 'daily'
+        };
+    }
+
+    /**
+     * 构建默认配置对象
+     */
+    private buildDefaultConfiguration(): Configuration {
+        return {
+            defaultView: 'text',
+            autoSave: true,
+            autoLoadLastGraph: true,
+            previewRefreshInterval: 1000,
+            maxNodesPerGraph: 100,
+            enableBackup: true,
+            backupInterval: 300000,
+            rootSymbolPreferences: this.getDefaultRootSymbolPreferences()
+        };
+    }
+
+    /**
      * Creates default configuration file if it doesn't exist
      */
     private async ensureDefaultConfig(): Promise<void> {
         try {
             await fs.access(this.configFile);
         } catch {
-            const defaultConfig: Configuration = {
-                defaultView: 'text',
-                autoSave: true,
-                autoLoadLastGraph: true,
-                previewRefreshInterval: 1000,
-                maxNodesPerGraph: 100,
-                enableBackup: true,
-                backupInterval: 300000 // 5 minutes
-            };
+            const defaultConfig = this.buildDefaultConfiguration();
             // Write directly to avoid circular call to ensureWorkspaceDirectory
             await fs.writeFile(this.configFile, JSON.stringify(defaultConfig, null, 2), 'utf8');
         }
@@ -372,15 +393,7 @@ export class StorageManager implements IStorageManager {
             return JSON.parse(fileContent);
         } catch (error) {
             // Return default configuration if file doesn't exist or is corrupted
-            return {
-                defaultView: 'text',
-                autoSave: true,
-                autoLoadLastGraph: true,
-                previewRefreshInterval: 1000,
-                maxNodesPerGraph: 100,
-                enableBackup: true,
-                backupInterval: 300000
-            };
+            return this.buildDefaultConfiguration();
         }
     }
 

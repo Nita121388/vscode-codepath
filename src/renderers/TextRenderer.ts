@@ -1,5 +1,6 @@
 import { Graph } from '../models/Graph';
 import { Node } from '../models/Node';
+import { RootSymbolService } from '../services/RootSymbolService';
 import { CodePathError } from '../types/errors';
 
 /**
@@ -10,10 +11,14 @@ export class TextRenderer {
     private readonly indentSize: number = 2;
     private readonly arrowSymbol: string = '→';
     private readonly branchSymbol: string = '├─';
-    private readonly branchPointSymbol: string = '🌲';
     private readonly lastBranchSymbol: string = '└─';
     private readonly verticalSymbol: string = '│';
     private readonly spaceSymbol: string = ' ';
+    private readonly rootSymbolService: RootSymbolService;
+
+    constructor(rootSymbolService?: RootSymbolService) {
+        this.rootSymbolService = rootSymbolService ?? new RootSymbolService();
+    }
 
     /**
      * Renders the graph as hierarchical text representation
@@ -45,11 +50,13 @@ export class TextRenderer {
                 return sections.join('\n');
             }
 
+            const rootSymbol = this.rootSymbolService.getRootSymbol();
+
             for (let i = 0; i < rootNodes.length; i++) {
                 const rootNode = rootNodes[i];
                 const isLastRoot = i === rootNodes.length - 1;
                 
-                sections.push(this.branchPointSymbol);
+                sections.push(rootSymbol);
                 sections.push(this.renderNodeHierarchy(graph, rootNode, '', isLastRoot));
 
                 // Add spacing between root hierarchies (except after the last one)
@@ -341,6 +348,7 @@ export class TextRenderer {
 
         // Sort files alphabetically
         const sortedFiles = Array.from(nodesByFile.keys()).sort();
+        const branchPointSymbol = this.rootSymbolService.getRootSymbol();
 
         for (const filePath of sortedFiles) {
             const nodes = nodesByFile.get(filePath)!;
@@ -358,7 +366,7 @@ export class TextRenderer {
                 const childInfo = childCount > 0 ? ` (${childCount} children)` : '';
                 const parentInfo = node.parentId ? ' (has parent)' : ' (root)';
 
-                sections.push(`  ${this.branchPointSymbol}`);
+                sections.push(`  ${branchPointSymbol}`);
                 sections.push(`  ${this.branchSymbol} ${node.name}${currentMarker} :${node.lineNumber}${childInfo}${parentInfo}`);
             }
 

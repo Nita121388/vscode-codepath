@@ -286,15 +286,6 @@
     "configuration": {
       "title": "CodePath",
       "properties": {
-        "codepath.defaultView": {
-          "type": "string",
-          "enum": [
-            "text",
-            "mermaid"
-          ],
-          "default": "text",
-          "description": "Default view type for graph preview"
-        },
         "codepath.autoSave": {
           "type": "boolean",
           "default": true,

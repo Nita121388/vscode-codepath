@@ -99,7 +99,7 @@ Code Path Marker 是一款 VS Code 扩展，支持在阅读或调试代码时，
 
 | 配置键 | 默认值 | 说明 |
 | --- | --- | --- |
-| `codepath.defaultView` | `"text"` | 预览默认展示格式，可选 `"text"` / `"mermaid"` |
+| （内部设置）默认预览模式 | `"text"` | 当前固定为文本模式，暂不提供用户级开关 |
 | `codepath.autoSave` | `true` | 是否启用自动保存 |
 | `codepath.autoLoadLastGraph` | `true` | 启动时自动加载上次使用的图谱 |
 | `codepath.previewRefreshInterval` | `1000` | 预览刷新间隔（毫秒），影响实时更新频率 |

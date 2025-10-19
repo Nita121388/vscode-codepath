@@ -2,6 +2,7 @@ import { Graph } from '../models/Graph';
 import { TextRenderer } from '../renderers/TextRenderer';
 import { MermaidRenderer } from '../renderers/MermaidRenderer';
 import { ViewFormat } from '../types';
+import { RootSymbolService } from '../services/RootSymbolService';
 import { CodePathError } from '../types/errors';
 
 /**
@@ -21,8 +22,12 @@ export class PreviewManager {
     private lastRenderedContent: string = '';
     private lastRenderedFormat: ViewFormat = 'text';
 
-    constructor(defaultFormat: ViewFormat = 'text', debounceDelay: number = 300) {
-        this.textRenderer = new TextRenderer();
+    constructor(
+        defaultFormat: ViewFormat = 'text',
+        debounceDelay: number = 300,
+        rootSymbolService?: RootSymbolService
+    ) {
+        this.textRenderer = new TextRenderer(rootSymbolService);
         this.mermaidRenderer = new MermaidRenderer();
         this.currentFormat = defaultFormat;
         this.currentGraph = null;

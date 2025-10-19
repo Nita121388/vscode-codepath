@@ -41,6 +41,17 @@ export interface GraphMetadata {
     nodeCount: number;
 }
 
+export type CustomRootSymbolMode = 'off' | 'override' | 'fallback';
+export type CustomRootSymbolSelection = 'fixed' | 'daily';
+
+export interface RootSymbolPreferences {
+    enableHolidayThemes: boolean;
+    enableSeasonalThemes: boolean;
+    customSymbolMode: CustomRootSymbolMode;
+    customSymbols: string[];
+    customSelectionStrategy: CustomRootSymbolSelection;
+}
+
 export interface Configuration {
     defaultView: 'text' | 'mermaid';
     autoSave: boolean;
@@ -49,6 +60,7 @@ export interface Configuration {
     maxNodesPerGraph: number;
     enableBackup: boolean;
     backupInterval: number;
+    rootSymbolPreferences: RootSymbolPreferences;
 }
 
 export interface StatusBarInfo {

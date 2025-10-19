@@ -106,32 +106,32 @@ export class StatusBarManager implements IStatusBarManager {
     private async showQuickMenu(): Promise<void> {
         const items: vscode.QuickPickItem[] = [
             {
-                label: '$(add) 新建 CodePath',
+                label: '➕ 新建 CodePath',
                 description: '创建一个新的 CodePath',
                 detail: 'Create New CodePath'
             },
             {
-                label: '$(arrow-swap) 切换 CodePath',
+                label: '🔁 切换 CodePath',
                 description: '在不同 CodePath 之间切换',
                 detail: 'Switch CodePath'
             },
             {
-                label: '$(export) 导出 CodePath',
+                label: '📤 导出 CodePath',
                 description: '将当前 CodePath 导出为 Markdown 文件',
                 detail: 'Export Current CodePath'
             },
             {
-                label: '$(folder-opened) 导入 CodePath',
+                label: '📥 导入 CodePath',
                 description: '从 Markdown 文件导入 CodePath',
                 detail: 'Import CodePath'
             },
             {
-                label: '$(trash) 删除 CodePath',
+                label: '🗑️ 删除 CodePath',
                 description: '删除一个 CodePath',
                 detail: 'Delete CodePath'
             },
             {
-                label: '$(refresh) 刷新预览',
+                label: '🔄 刷新预览',
                 description: '刷新当前预览面板',
                 detail: 'Refresh Preview'
             }
@@ -175,7 +175,7 @@ export class StatusBarManager implements IStatusBarManager {
         const { currentGraph, nodeCount } = this.statusInfo;
 
         if (currentGraph) {
-            this.graphInfoItem.text = `$(graph) ${currentGraph} (${nodeCount} nodes)`;
+            this.graphInfoItem.text = `📊 ${currentGraph} (${nodeCount} nodes)`;
             this.graphInfoItem.tooltip = new vscode.MarkdownString(
                 `**当前 CodePath:** ${currentGraph}\n\n` +
                 `**节点数:** ${nodeCount}\n\n` +
@@ -188,7 +188,7 @@ export class StatusBarManager implements IStatusBarManager {
                 `- 更多操作...`
             );
         } else {
-            this.graphInfoItem.text = '$(graph) 无 CodePath';
+            this.graphInfoItem.text = '📊 无 CodePath';
             this.graphInfoItem.tooltip = new vscode.MarkdownString(
                 `**无活动 CodePath**\n\n` +
                 `点击打开快捷菜单:\n` +

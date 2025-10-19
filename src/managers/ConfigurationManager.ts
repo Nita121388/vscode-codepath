@@ -1,4 +1,4 @@
-import { Configuration } from '../types';
+import { Configuration, RootSymbolPreferences } from '../types';
 import { IConfigurationManager } from '../interfaces/IConfigurationManager';
 import { IStorageManager } from '../interfaces/IStorageManager';
 
@@ -26,7 +26,21 @@ export class ConfigurationManager implements IConfigurationManager {
             previewRefreshInterval: 1000,
             maxNodesPerGraph: 100,
             enableBackup: true,
-            backupInterval: 300000 // 5 minutes
+            backupInterval: 300000, // 5 minutes
+            rootSymbolPreferences: this.getDefaultRootSymbolPreferences()
+        };
+    }
+
+    /**
+     * 获取根节点符号的默认配置
+     */
+    private getDefaultRootSymbolPreferences(): RootSymbolPreferences {
+        return {
+            enableHolidayThemes: true,
+            enableSeasonalThemes: true,
+            customSymbolMode: 'fallback' as const,
+            customSymbols: [],
+            customSelectionStrategy: 'daily' as const
         };
     }
 
@@ -39,7 +53,7 @@ export class ConfigurationManager implements IConfigurationManager {
             
             // Validate the loaded configuration
             if (this.validateConfiguration(config)) {
-                this.currentConfig = { ...this.getDefaultConfiguration(), ...config };
+                this.currentConfig = this.mergeWithDefaults(config as Partial<Configuration>);
             } else {
                 console.warn('Invalid configuration loaded, using defaults');
                 this.currentConfig = this.getDefaultConfiguration();
@@ -62,8 +76,9 @@ export class ConfigurationManager implements IConfigurationManager {
         }
 
         try {
-            await this.storageManager.saveConfiguration(config);
-            this.currentConfig = { ...config };
+            const configToPersist = this.cloneConfiguration(config);
+            await this.storageManager.saveConfiguration(configToPersist);
+            this.currentConfig = configToPersist;
         } catch (error) {
             throw new Error(`Failed to save configuration: ${error}`);
         }
@@ -73,14 +88,14 @@ export class ConfigurationManager implements IConfigurationManager {
      * Gets the current configuration
      */
     public getConfiguration(): Configuration {
-        return { ...this.currentConfig };
+        return this.cloneConfiguration(this.currentConfig);
     }
 
     /**
      * Updates configuration with partial updates
      */
     public async updateConfiguration(updates: Partial<Configuration>): Promise<void> {
-        const newConfig = { ...this.currentConfig, ...updates };
+        const newConfig = this.mergeConfigurations(this.currentConfig, updates);
         
         if (!this.validateConfiguration(newConfig)) {
             throw new Error('Invalid configuration updates provided');
@@ -95,6 +110,92 @@ export class ConfigurationManager implements IConfigurationManager {
     public async resetToDefaults(): Promise<void> {
         const defaultConfig = this.getDefaultConfiguration();
         await this.saveConfiguration(defaultConfig);
+    }
+
+    /**
+     * 合并配置并保留嵌套对象的默认值
+     */
+    private mergeConfigurations(
+        base: Configuration,
+        updates: Partial<Configuration>
+    ): Configuration {
+        const merged: Configuration = {
+            ...base,
+            ...updates
+        };
+
+        merged.rootSymbolPreferences = this.mergeRootSymbolPreferences(
+            base.rootSymbolPreferences,
+            updates.rootSymbolPreferences
+        );
+
+        return this.cloneConfiguration(merged);
+    }
+
+    /**
+     * 与默认配置进行合并，填充缺省字段
+     */
+    private mergeWithDefaults(config: Partial<Configuration>): Configuration {
+        const defaults = this.getDefaultConfiguration();
+
+        const merged: Configuration = {
+            ...defaults,
+            ...config
+        };
+
+        merged.rootSymbolPreferences = this.mergeRootSymbolPreferences(
+            defaults.rootSymbolPreferences,
+            config.rootSymbolPreferences
+        );
+
+        return this.cloneConfiguration(merged);
+    }
+
+    /**
+     * 深拷贝配置，避免外部修改内部状态
+     */
+    private cloneConfiguration(config: Configuration): Configuration {
+        return {
+            ...config,
+            rootSymbolPreferences: this.cloneRootSymbolPreferences(config.rootSymbolPreferences)
+        };
+    }
+
+    /**
+     * 深拷贝根节点符号配置
+     */
+    private cloneRootSymbolPreferences(preferences: RootSymbolPreferences): RootSymbolPreferences {
+        return {
+            ...preferences,
+            customSymbols: [...preferences.customSymbols]
+        };
+    }
+
+    /**
+     * 合并根节点符号配置
+     */
+    private mergeRootSymbolPreferences(
+        base: RootSymbolPreferences,
+        overrides?: Partial<RootSymbolPreferences>
+    ): RootSymbolPreferences {
+        if (!overrides) {
+            return this.cloneRootSymbolPreferences(base);
+        }
+
+        const merged: RootSymbolPreferences = {
+            ...base,
+            ...overrides
+        };
+
+        if (overrides.customSymbols) {
+            merged.customSymbols = overrides.customSymbols
+                .map(symbol => (typeof symbol === 'string' ? symbol.trim() : ''))
+                .filter(symbol => symbol.length > 0);
+        } else {
+            merged.customSymbols = [...base.customSymbols];
+        }
+
+        return merged;
     }
 
     /**
@@ -113,7 +214,8 @@ export class ConfigurationManager implements IConfigurationManager {
                     'previewRefreshInterval',
                     'maxNodesPerGraph',
                     'enableBackup',
-                    'backupInterval'
+                    'backupInterval',
+                    'rootSymbolPreferences'
                 ];
 
                 for (const key of requiredKeys) {
@@ -167,6 +269,15 @@ export class ConfigurationManager implements IConfigurationManager {
                 }
             }
 
+            if ('rootSymbolPreferences' in config) {
+                if (!this.validateRootSymbolPreferences(
+                    config.rootSymbolPreferences,
+                    isFullConfig
+                )) {
+                    return false;
+                }
+            }
+
             return true;
         } catch (error) {
             console.warn('Configuration validation error:', error);
@@ -185,7 +296,8 @@ export class ConfigurationManager implements IConfigurationManager {
             'previewRefreshInterval',
             'maxNodesPerGraph',
             'enableBackup',
-            'backupInterval'
+            'backupInterval',
+            'rootSymbolPreferences'
         ];
 
         return requiredKeys.every(key => key in config);
@@ -301,9 +413,100 @@ export class ConfigurationManager implements IConfigurationManager {
     }
 
     /**
+     * 校验根节点符号配置
+     */
+    private validateRootSymbolPreferences(
+        value: any,
+        requireAllFields: boolean
+    ): value is RootSymbolPreferences | Partial<RootSymbolPreferences> {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+            console.warn('rootSymbolPreferences 必须是对象');
+            return false;
+        }
+
+        const requiredFields: (keyof RootSymbolPreferences)[] = [
+            'enableHolidayThemes',
+            'enableSeasonalThemes',
+            'customSymbolMode',
+            'customSymbols',
+            'customSelectionStrategy'
+        ];
+
+        if (requireAllFields) {
+            for (const field of requiredFields) {
+                if (!(field in value)) {
+                    console.warn(`rootSymbolPreferences 缺少必要字段: ${field}`);
+                    return false;
+                }
+            }
+        }
+
+        if ('enableHolidayThemes' in value && typeof value.enableHolidayThemes !== 'boolean') {
+            console.warn('rootSymbolPreferences.enableHolidayThemes 必须是布尔值');
+            return false;
+        }
+
+        if ('enableSeasonalThemes' in value && typeof value.enableSeasonalThemes !== 'boolean') {
+            console.warn('rootSymbolPreferences.enableSeasonalThemes 必须是布尔值');
+            return false;
+        }
+
+        if ('customSymbolMode' in value) {
+            if (typeof value.customSymbolMode !== 'string') {
+                console.warn('rootSymbolPreferences.customSymbolMode 必须是字符串');
+                return false;
+            }
+
+            const allowedModes: RootSymbolPreferences['customSymbolMode'][] = ['off', 'override', 'fallback'];
+            if (!allowedModes.includes(value.customSymbolMode)) {
+                console.warn('rootSymbolPreferences.customSymbolMode 取值必须为 off | override | fallback');
+                return false;
+            }
+        }
+
+        if ('customSelectionStrategy' in value) {
+            if (typeof value.customSelectionStrategy !== 'string') {
+                console.warn('rootSymbolPreferences.customSelectionStrategy 必须是字符串');
+                return false;
+            }
+
+            const allowedStrategies: RootSymbolPreferences['customSelectionStrategy'][] = ['fixed', 'daily'];
+            if (!allowedStrategies.includes(value.customSelectionStrategy)) {
+                console.warn('rootSymbolPreferences.customSelectionStrategy 取值必须为 fixed | daily');
+                return false;
+            }
+        }
+
+        if ('customSymbols' in value) {
+            if (!Array.isArray(value.customSymbols)) {
+                console.warn('rootSymbolPreferences.customSymbols 必须是字符串数组');
+                return false;
+            }
+
+            for (const symbol of value.customSymbols) {
+                if (typeof symbol !== 'string') {
+                    console.warn('rootSymbolPreferences.customSymbols 中的元素必须是字符串');
+                    return false;
+                }
+
+                if (symbol.trim().length === 0) {
+                    console.warn('rootSymbolPreferences.customSymbols 中的字符串不能为空');
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Gets configuration value by key with type safety
      */
     public getConfigValue<K extends keyof Configuration>(key: K): Configuration[K] {
+        if (key === 'rootSymbolPreferences') {
+            return this.cloneRootSymbolPreferences(this.currentConfig.rootSymbolPreferences) as Configuration[K];
+        }
+
         return this.currentConfig[key];
     }
 
@@ -327,7 +530,8 @@ export class ConfigurationManager implements IConfigurationManager {
                 type: 'enum',
                 values: ['text', 'mermaid'],
                 default: 'text',
-                description: 'Default view format for graph preview'
+                description: 'Default view format for graph preview',
+                hidden: true // 暂不对用户暴露
             },
             autoSave: {
                 type: 'boolean',
@@ -364,6 +568,41 @@ export class ConfigurationManager implements IConfigurationManager {
                 max: 3600000,
                 default: 300000,
                 description: 'Backup interval in milliseconds'
+            },
+            rootSymbolPreferences: {
+                type: 'object',
+                description: '根节点符号的节日主题与自定义表情设置',
+                hidden: true,
+                properties: {
+                    enableHolidayThemes: {
+                        type: 'boolean',
+                        default: true,
+                        description: '节日（如圣诞、万圣节等）是否自动切换符号'
+                    },
+                    enableSeasonalThemes: {
+                        type: 'boolean',
+                        default: true,
+                        description: '是否根据季度切换根节点符号'
+                    },
+                    customSymbolMode: {
+                        type: 'enum',
+                        values: ['off', 'override', 'fallback'],
+                        default: 'fallback',
+                        description: '自定义表情池的使用策略：关闭、完全覆盖或作为兜底'
+                    },
+                    customSelectionStrategy: {
+                        type: 'enum',
+                        values: ['fixed', 'daily'],
+                        default: 'daily',
+                        description: '自定义表情池的选择策略：固定使用第一项或按日轮换'
+                    },
+                    customSymbols: {
+                        type: 'array',
+                        itemType: 'string',
+                        default: [],
+                        description: '自定义的根节点表情或图标列表'
+                    }
+                }
             }
         };
     }

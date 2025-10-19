@@ -23,6 +23,23 @@ const mockStorageManager: IStorageManager = {
 
 describe('ConfigurationManager', () => {
     let configManager: ConfigurationManager;
+    const buildConfig = (overrides: Partial<Configuration> = {}): Configuration => {
+        const base = configManager.getDefaultConfiguration();
+        const baseRoot = base.rootSymbolPreferences;
+        const overrideRoot = overrides.rootSymbolPreferences ?? {};
+
+        return {
+            ...base,
+            ...overrides,
+            rootSymbolPreferences: {
+                ...baseRoot,
+                ...overrideRoot,
+                customSymbols: overrideRoot.customSymbols
+                    ? [...overrideRoot.customSymbols]
+                    : [...baseRoot.customSymbols]
+            }
+        };
+    };
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -40,6 +57,13 @@ describe('ConfigurationManager', () => {
             expect(defaultConfig.maxNodesPerGraph).toBe(100);
             expect(defaultConfig.enableBackup).toBe(true);
             expect(defaultConfig.backupInterval).toBe(300000);
+            expect(defaultConfig.rootSymbolPreferences).toEqual({
+                enableHolidayThemes: true,
+                enableSeasonalThemes: true,
+                customSymbolMode: 'fallback',
+                customSymbols: [],
+                customSelectionStrategy: 'daily'
+            });
         });
 
         it('should pass validation', () => {
@@ -50,15 +74,22 @@ describe('ConfigurationManager', () => {
 
     describe('validateConfiguration', () => {
         it('should validate correct full configuration', () => {
-            const validConfig: Configuration = {
+            const validConfig = buildConfig({
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
-            };
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: false,
+                    enableSeasonalThemes: true,
+                    customSymbolMode: 'override',
+                    customSymbols: ['🪴', '🦊'],
+                    customSelectionStrategy: 'daily'
+                }
+            });
 
             expect(configManager.validateConfiguration(validConfig)).toBe(true);
         });
@@ -134,15 +165,22 @@ describe('ConfigurationManager', () => {
 
     describe('loadConfiguration', () => {
         it('should load valid configuration from storage', async () => {
-            const storedConfig: Configuration = {
+            const storedConfig = buildConfig({
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
-            };
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: true,
+                    enableSeasonalThemes: false,
+                    customSymbolMode: 'fallback',
+                    customSymbols: ['🥳'],
+                    customSelectionStrategy: 'fixed'
+                }
+            });
 
             vi.mocked(mockStorageManager.loadConfiguration).mockResolvedValue(storedConfig);
 
@@ -196,15 +234,22 @@ describe('ConfigurationManager', () => {
 
     describe('saveConfiguration', () => {
         it('should save valid configuration', async () => {
-            const validConfig: Configuration = {
+            const validConfig = buildConfig({
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
-            };
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: true,
+                    enableSeasonalThemes: true,
+                    customSymbolMode: 'override',
+                    customSymbols: ['🧊'],
+                    customSelectionStrategy: 'fixed'
+                }
+            });
 
             await configManager.saveConfiguration(validConfig);
 
@@ -266,15 +311,22 @@ describe('ConfigurationManager', () => {
             vi.mocked(mockStorageManager.saveConfiguration).mockResolvedValue();
             
             // First set a custom configuration
-            const customConfig: Configuration = {
+            const customConfig = buildConfig({
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
-            };
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: false,
+                    enableSeasonalThemes: true,
+                    customSymbolMode: 'override',
+                    customSymbols: ['🍡'],
+                    customSelectionStrategy: 'daily'
+                }
+            });
 
             await configManager.saveConfiguration(customConfig);
             vi.clearAllMocks();
@@ -313,15 +365,22 @@ describe('ConfigurationManager', () => {
         it('should import configuration from JSON string', async () => {
             vi.mocked(mockStorageManager.saveConfiguration).mockResolvedValue();
             
-            const customConfig: Configuration = {
+            const customConfig = buildConfig({
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
-            };
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: true,
+                    enableSeasonalThemes: true,
+                    customSymbolMode: 'override',
+                    customSymbols: ['🛸'],
+                    customSelectionStrategy: 'daily'
+                }
+            });
 
             const jsonString = JSON.stringify(customConfig);
             await configManager.importConfiguration(jsonString);
@@ -360,20 +419,33 @@ describe('ConfigurationManager', () => {
             expect(schema.previewRefreshInterval.type).toBe('number');
             expect(schema.previewRefreshInterval.min).toBe(100);
             expect(schema.previewRefreshInterval.max).toBe(10000);
+            expect(schema.defaultView.hidden).toBe(true);
+            expect(schema.rootSymbolPreferences.type).toBe('object');
+            expect(schema.rootSymbolPreferences.properties.customSymbolMode.values)
+                .toEqual(['off', 'override', 'fallback']);
+            expect(schema.rootSymbolPreferences.properties.customSymbols.type).toBe('array');
+            expect(schema.rootSymbolPreferences.hidden).toBe(true);
         });
     });
 
     describe('initialize', () => {
         it('should initialize by loading configuration', async () => {
-            const storedConfig: Configuration = {
+            const storedConfig = buildConfig({
                 defaultView: 'mermaid',
                 autoSave: false,
                 autoLoadLastGraph: false,
                 previewRefreshInterval: 2000,
                 maxNodesPerGraph: 50,
                 enableBackup: false,
-                backupInterval: 600000
-            };
+                backupInterval: 600000,
+                rootSymbolPreferences: {
+                    enableHolidayThemes: true,
+                    enableSeasonalThemes: false,
+                    customSymbolMode: 'fallback',
+                    customSymbols: ['🧠'],
+                    customSelectionStrategy: 'fixed'
+                }
+            });
 
             vi.mocked(mockStorageManager.loadConfiguration).mockResolvedValue(storedConfig);
 

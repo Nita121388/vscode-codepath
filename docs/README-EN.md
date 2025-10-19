@@ -99,7 +99,7 @@ Tune settings via VS Code Preferences (`Ctrl+,`) and search for "Code Path Marke
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `codepath.defaultView` | `"text"` | Default preview mode: `"text"` or `"mermaid"` |
+| (Internal) default preview mode | `"text"` | Currently locked to text view and not user configurable |
 | `codepath.autoSave` | `true` | Enable automatic graph saving |
 | `codepath.autoLoadLastGraph` | `true` | Load the most recent graph on startup |
 | `codepath.previewRefreshInterval` | `1000` | Preview refresh interval in milliseconds |

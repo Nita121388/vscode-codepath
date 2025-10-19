@@ -20,8 +20,7 @@ import { CommandManager } from './managers/CommandManager';
 import { StatusBarManager } from './managers/StatusBarManager';
 import { WebviewManager } from './managers/WebviewManager';
 import { IntegrationManager } from './managers/IntegrationManager';
-import { TextRenderer } from './renderers/TextRenderer';
-import { MermaidRenderer } from './renderers/MermaidRenderer';
+import { RootSymbolService } from './services/RootSymbolService';
 import { CodePathError } from './types/errors';
 
 /**
@@ -178,13 +177,13 @@ async function initializeManagers(context: vscode.ExtensionContext): Promise<voi
         // Initialize node manager
         extensionState.nodeManager = new NodeManager(extensionState.graphManager);
         
-        // Initialize renderers
-        const textRenderer = new TextRenderer();
-        const mermaidRenderer = new MermaidRenderer();
-        
         // Initialize preview manager
         const defaultFormat = extensionState.configManager.getConfiguration().defaultView;
-        extensionState.previewManager = new PreviewManager(defaultFormat);
+        const rootSymbolService = new RootSymbolService({
+            configProvider: () => extensionState.configManager?.getConfiguration()
+        });
+        // 初始化根节点符号服务，支持节日/季节主题与用户自定义
+        extensionState.previewManager = new PreviewManager(defaultFormat, 300, rootSymbolService);
         
         // Initialize webview manager
         extensionState.webviewManager = new WebviewManager(context);
