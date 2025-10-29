@@ -10,9 +10,9 @@ import { CodePathError } from '../types/errors';
 export class TextRenderer {
     private readonly indentSize: number = 2;
     private readonly arrowSymbol: string = '→';
-    private readonly branchSymbol: string = '├─';
-    private readonly lastBranchSymbol: string = '└─';
-    private readonly verticalSymbol: string = '│';
+    private readonly branchSymbol: string = ' ├─';
+    private readonly lastBranchSymbol: string = ' └─';
+    private readonly verticalSymbol: string = ' │';
     private readonly spaceSymbol: string = ' ';
     private readonly rootSymbolService: RootSymbolService;
 

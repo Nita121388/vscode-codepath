@@ -162,7 +162,7 @@ export class CodePathError extends Error {
      */
     static clipboardError(message: string, userMessage?: string): CodePathError {
         return new CodePathError(`剪贴板操作失败: ${message}`, 'clipboard', {
-            userMessage: userMessage ?? 'Clipboard operation failed. Please try again.',
+            userMessage: userMessage ?? '剪贴板操作失败。请重试。',
             suggestedAction: 'clearClipboard'
         });
     }
@@ -172,7 +172,7 @@ export class CodePathError extends Error {
      */
     static orderError(message: string, userMessage?: string): CodePathError {
         return new CodePathError(`节点顺序操作失败: ${message}`, 'order', {
-            userMessage: userMessage ?? 'Node order operation failed. Please check node position and try again.',
+            userMessage: userMessage ?? '节点顺序操作失败。请检查节点位置并重试。',
             suggestedAction: 'refreshPreview'
         });
     }

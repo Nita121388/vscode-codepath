@@ -134,7 +134,7 @@ export class StatusBarManager implements IStatusBarManager {
 
         if (currentGraph) {
             this.graphInfoItem.text = `🧭 ${currentGraph} (${nodeCount} nodes)`;
-            this.graphInfoItem.tooltip = new vscode.MarkdownString(
+            this.graphInfoItem.tooltip = this.createMarkdownTooltip(
                 `**当前 CodePath：** ${currentGraph}\n\n` +
                 `**节点数：** ${nodeCount}\n\n` +
                 `---\n\n` +
@@ -146,7 +146,7 @@ export class StatusBarManager implements IStatusBarManager {
             );
         } else {
             this.graphInfoItem.text = '🧭 未选择 CodePath';
-            this.graphInfoItem.tooltip = new vscode.MarkdownString(
+            this.graphInfoItem.tooltip = this.createMarkdownTooltip(
                 `**暂无活动的 CodePath**\n\n` +
                 `点击打开快捷菜单：\n` +
                 `- 创建 CodePath\n` +
@@ -154,5 +154,33 @@ export class StatusBarManager implements IStatusBarManager {
                 `- 切换 CodePath`
             );
         }
+    }
+
+    /**
+     * 在测试环境下 VS Code 可能未暴露 MarkdownString，这里提供兜底实现
+     */
+    private createMarkdownTooltip(initial: string): vscode.MarkdownString {
+        const MarkdownCtor = (vscode as any).MarkdownString;
+        if (typeof MarkdownCtor === 'function') {
+            return new MarkdownCtor(initial);
+        }
+
+        const fallback = {
+            value: initial ?? '',
+            appendText(text: string) {
+                this.value += text;
+                return this;
+            },
+            appendMarkdown(markdown: string) {
+                this.value += markdown;
+                return this;
+            },
+            appendCodeblock(code: string, language?: string) {
+                this.value += `\`\`\`${language ?? ''}\n${code}\n\`\`\``;
+                return this;
+            }
+        };
+
+        return fallback as unknown as vscode.MarkdownString;
     }
 }

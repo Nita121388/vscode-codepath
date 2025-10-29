@@ -4,6 +4,38 @@ import { WebviewManager } from '../managers/WebviewManager';
 import { NodeManager } from '../managers/NodeManager';
 import { GraphManager } from '../managers/GraphManager';
 
+// Mock Node.js fs module
+vi.mock('fs', () => ({
+    readFileSync: vi.fn(() => `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';">
+    <title>CodePath Preview</title>
+</head>
+<body>
+    <div id="content">{{content}}</div>
+    <script nonce="{{nonce}}">
+        // Mock script content
+        const vscode = acquireVsCodeApi();
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            vscode.postMessage({
+                command: 'showContextMenu',
+                nodeId: 'test-node',
+                x: e.clientX,
+                y: e.clientY
+            });
+        });
+    </script>
+</body>
+</html>`),
+    existsSync: vi.fn(() => true),
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn()
+}));
+
 // Mock VS Code API
 vi.mock('vscode', () => ({
     window: {
@@ -22,7 +54,10 @@ vi.mock('vscode', () => ({
         Two: 2,
     },
     Uri: {
-        joinPath: vi.fn(),
+        joinPath: vi.fn((base, ...paths) => ({
+            fsPath: `${base.fsPath}/${paths.join('/')}`,
+            scheme: 'file'
+        })),
     },
 }));
 
@@ -207,7 +242,7 @@ describe('WebviewManager Custom Menu Integration', () => {
                 expect.objectContaining({ label: expect.stringContaining('复制') })
             ]));
             expect(options).toEqual(expect.objectContaining({
-                placeHolder: '请选择操作 (Node: Test Node)'
+                placeHolder: '请选择操作 (节点: Test Node)'
             }));
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNode');
         });

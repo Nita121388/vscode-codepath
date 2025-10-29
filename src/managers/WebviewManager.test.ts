@@ -16,7 +16,7 @@ describe('WebviewManager', () => {
 
         // Create mock context
         mockContext = {
-            extensionUri: { fsPath: '/test/extension' },
+            extensionUri: { fsPath: process.cwd() },
             subscriptions: []
         } as any;
 
@@ -155,12 +155,7 @@ describe('WebviewManager', () => {
             // Setup webview panel for menu tests
             await webviewManager.showPreview();
             
-            // Mock the private methods that would be called
-            (webviewManager as any).findNodeByIdentifier = vi.fn();
-            (webviewManager as any).isNodeOperationAvailable = vi.fn().mockReturnValue(true);
-            (webviewManager as any).hasClipboardData = vi.fn();
-            (webviewManager as any).executePreviewAction = vi.fn();
-            (webviewManager as any).setCurrentNodeForOperation = vi.fn();
+            // Don't mock the private methods - let them run for testing
         });
 
         describe('showPreviewContextMenu', () => {
@@ -180,10 +175,11 @@ describe('WebviewManager', () => {
                 expect(vscode.window.showQuickPick).toHaveBeenCalledWith(
                     expect.arrayContaining([
                         expect.objectContaining({ label: '🔄 刷新' }),
-                        expect.objectContaining({ label: '📤 导出' })
+                        expect.objectContaining({ label: '📤 导出' }),
+                        expect.objectContaining({ label: '⚙️ 打开设置' })
                     ]),
                     expect.objectContaining({
-                        placeHolder: '选择操作 (Select Action)'
+                        placeHolder: expect.stringContaining('请选择操作')
                     })
                 );
             });
@@ -195,6 +191,7 @@ describe('WebviewManager', () => {
                     nodes: new Map([['test-node', mockNode]])
                 };
                 webviewManager.setGetCurrentGraphCallback(() => mockGraph);
+                webviewManager.setGetNodeByLocationCallback(() => mockNode);
                 (vscode.window.showQuickPick as any).mockResolvedValue({ label: '📋 复制' });
 
                 // Execute
@@ -210,10 +207,11 @@ describe('WebviewManager', () => {
                         expect.objectContaining({ label: '📄 粘贴' }),
                         expect.objectContaining({ label: '✂️ 剪切' }),
                         expect.objectContaining({ label: '⬆️ 上移' }),
-                        expect.objectContaining({ label: '⬇️ 下移' })
+                        expect.objectContaining({ label: '⬇️ 下移' }),
+                        expect.objectContaining({ label: '⚙️ 打开设置' })
                     ]),
                     expect.objectContaining({
-                        placeHolder: '选择操作 (Node: Test Node)'
+                        placeHolder: expect.stringContaining('请选择操作')
                     })
                 );
             });
@@ -246,8 +244,9 @@ describe('WebviewManager', () => {
                 const showPreviewContextMenu = (webviewManager as any).showPreviewContextMenu.bind(webviewManager);
                 await showPreviewContextMenu(null, 100, 200);
 
-                // Verify - should not call any commands
-                expect(vscode.commands.executeCommand).not.toHaveBeenCalled();
+                // Verify - should not call action commands (getContext is OK for checking clipboard)
+                expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith('codepath.copyNode');
+                expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith('codepath.pasteNode');
             });
 
             it('should disable node operations when not available', async () => {
@@ -274,10 +273,9 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockRefreshCallback = vi.fn();
                 webviewManager.setRefreshCallback(mockRefreshCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
 
                 // Execute
-                await executePreviewAction('刷新', null);
+                await (webviewManager as any).executePreviewAction('🔄 刷新', null);
 
                 // Verify
                 expect(mockRefreshCallback).toHaveBeenCalled();
@@ -287,10 +285,9 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockExportCallback = vi.fn();
                 webviewManager.setExportGraphCallback(mockExportCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
 
                 // Execute
-                await executePreviewAction('导出', null);
+                await (webviewManager as any).executePreviewAction('📤 导出', null);
 
                 // Verify
                 expect(mockExportCallback).toHaveBeenCalled();
@@ -300,10 +297,9 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
 
                 // Execute
-                await executePreviewAction('复制', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('📋 复制', 'test-node-id');
 
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
@@ -314,10 +310,8 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
-
                 // Execute
-                await executePreviewAction('粘贴', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('📄 粘贴', 'test-node-id');
 
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
@@ -328,10 +322,8 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
-
                 // Execute
-                await executePreviewAction('剪切', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('✂️ 剪切', 'test-node-id');
 
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
@@ -342,10 +334,8 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
-
                 // Execute
-                await executePreviewAction('上移', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('⬆️ 上移', 'test-node-id');
 
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
@@ -356,10 +346,8 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
-
                 // Execute
-                await executePreviewAction('下移', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('⬇️ 下移', 'test-node-id');
 
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
@@ -368,10 +356,9 @@ describe('WebviewManager', () => {
 
             it('should handle unknown action gracefully', async () => {
                 // Setup
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
 
                 // Execute
-                await executePreviewAction('Unknown Action', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('Unknown Action', 'test-node-id');
 
                 // Verify - should not throw error
                 expect(true).toBe(true);
@@ -382,14 +369,12 @@ describe('WebviewManager', () => {
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
                 (vscode.commands.executeCommand as any).mockRejectedValue(new Error('Command failed'));
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
-
                 // Execute
-                await executePreviewAction('复制', 'test-node-id');
+                await (webviewManager as any).executePreviewAction('📋 复制', 'test-node-id');
 
                 // Verify - should show error message
                 expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                    expect.stringContaining('预览菜单操作失败')
+                    expect.stringContaining('Failed to execute')
                 );
             });
         });
@@ -403,10 +388,9 @@ describe('WebviewManager', () => {
                 };
                 webviewManager.setGetCurrentGraphCallback(() => mockGraph);
                 webviewManager.setGetNodeByLocationCallback(() => null);
-                const findNodeByIdentifier = (webviewManager as any).findNodeByIdentifier.bind(webviewManager);
 
                 // Execute
-                const result = findNodeByIdentifier('test-node');
+                const result = (webviewManager as any).findNodeByIdentifier('test-node');
 
                 // Verify
                 expect(result).toBe(mockNode);
@@ -418,10 +402,9 @@ describe('WebviewManager', () => {
                 const mockGraph = { nodes: new Map() };
                 webviewManager.setGetCurrentGraphCallback(() => mockGraph);
                 webviewManager.setGetNodeByLocationCallback(() => mockNode);
-                const findNodeByIdentifier = (webviewManager as any).findNodeByIdentifier.bind(webviewManager);
 
                 // Execute
-                const result = findNodeByIdentifier('/test/file.ts:42');
+                const result = (webviewManager as any).findNodeByIdentifier('/test/file.ts:42');
 
                 // Verify
                 expect(result).toBe(mockNode);
@@ -432,10 +415,9 @@ describe('WebviewManager', () => {
                 const mockGraph = { nodes: new Map() };
                 webviewManager.setGetCurrentGraphCallback(() => mockGraph);
                 webviewManager.setGetNodeByLocationCallback(() => null);
-                const findNodeByIdentifier = (webviewManager as any).findNodeByIdentifier.bind(webviewManager);
 
                 // Execute
-                const result = findNodeByIdentifier('invalid-id');
+                const result = (webviewManager as any).findNodeByIdentifier('invalid-id');
 
                 // Verify
                 expect(result).toBeNull();
@@ -444,10 +426,9 @@ describe('WebviewManager', () => {
             it('should handle missing graph gracefully', () => {
                 // Setup
                 webviewManager.setGetCurrentGraphCallback(() => null);
-                const findNodeByIdentifier = (webviewManager as any).findNodeByIdentifier.bind(webviewManager);
 
                 // Execute
-                const result = findNodeByIdentifier('test-node');
+                const result = (webviewManager as any).findNodeByIdentifier('test-node');
 
                 // Verify
                 expect(result).toBeNull();
@@ -458,10 +439,9 @@ describe('WebviewManager', () => {
             it('should return true when clipboard context is set', async () => {
                 // Setup
                 (vscode.commands.executeCommand as any).mockResolvedValue(true);
-                const hasClipboardData = (webviewManager as any).hasClipboardData.bind(webviewManager);
 
                 // Execute
-                const result = await hasClipboardData();
+                const result = await (webviewManager as any).hasClipboardData();
 
                 // Verify
                 expect(result).toBe(true);
@@ -471,10 +451,9 @@ describe('WebviewManager', () => {
             it('should return false when clipboard context is not set', async () => {
                 // Setup
                 (vscode.commands.executeCommand as any).mockResolvedValue(false);
-                const hasClipboardData = (webviewManager as any).hasClipboardData.bind(webviewManager);
 
                 // Execute
-                const result = await hasClipboardData();
+                const result = await (webviewManager as any).hasClipboardData();
 
                 // Verify
                 expect(result).toBe(false);
@@ -483,10 +462,9 @@ describe('WebviewManager', () => {
             it('should handle errors gracefully', async () => {
                 // Setup
                 (vscode.commands.executeCommand as any).mockRejectedValue(new Error('Test error'));
-                const hasClipboardData = (webviewManager as any).hasClipboardData.bind(webviewManager);
 
                 // Execute
-                const result = await hasClipboardData();
+                const result = await (webviewManager as any).hasClipboardData();
 
                 // Verify
                 expect(result).toBe(false);
@@ -496,12 +474,11 @@ describe('WebviewManager', () => {
         describe('isNodeOperationAvailable', () => {
             it('should return true when node operations are available', () => {
                 // Setup
-                const mockGraph = { nodes: new Map() };
+                const mockGraph = { nodes: new Map([['test', {}]]) }; // Add at least one node
                 webviewManager.setGetCurrentGraphCallback(() => mockGraph);
-                const isNodeOperationAvailable = (webviewManager as any).isNodeOperationAvailable.bind(webviewManager);
 
                 // Execute
-                const result = isNodeOperationAvailable();
+                const result = (webviewManager as any).isNodeOperationAvailable();
 
                 // Verify
                 expect(result).toBe(true);
@@ -509,10 +486,9 @@ describe('WebviewManager', () => {
 
             it('should return false when no graph callback is set', () => {
                 // Setup - no callback set
-                const isNodeOperationAvailable = (webviewManager as any).isNodeOperationAvailable.bind(webviewManager);
 
                 // Execute
-                const result = isNodeOperationAvailable();
+                const result = (webviewManager as any).isNodeOperationAvailable();
 
                 // Verify
                 expect(result).toBe(false);
@@ -524,10 +500,9 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockNodeSwitchCallback = vi.fn();
                 webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
-                const setCurrentNodeForOperation = (webviewManager as any).setCurrentNodeForOperation.bind(webviewManager);
 
                 // Execute
-                await setCurrentNodeForOperation('test-node');
+                await (webviewManager as any).setCurrentNodeForOperation('test-node');
 
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node');
@@ -535,10 +510,9 @@ describe('WebviewManager', () => {
 
             it('should handle missing callback gracefully', async () => {
                 // Setup - no callback set
-                const setCurrentNodeForOperation = (webviewManager as any).setCurrentNodeForOperation.bind(webviewManager);
 
                 // Execute & Verify - should not throw
-                await expect(setCurrentNodeForOperation('test-node')).resolves.not.toThrow();
+                await expect((webviewManager as any).setCurrentNodeForOperation('test-node')).resolves.not.toThrow();
             });
         });
 
@@ -595,7 +569,7 @@ describe('WebviewManager', () => {
 
                 // Verify - should show error message
                 expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                    expect.stringContaining('预览菜单显示失败')
+                    expect.stringContaining('Failed to show context menu')
                 );
             });
 
@@ -603,23 +577,21 @@ describe('WebviewManager', () => {
                 // Setup
                 const mockRefreshCallback = vi.fn().mockRejectedValue(new Error('Refresh failed'));
                 webviewManager.setRefreshCallback(mockRefreshCallback);
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
 
                 // Execute
-                await executePreviewAction('刷新', null);
+                await (webviewManager as any).executePreviewAction('🔄 刷新', null);
 
                 // Verify - should show error message
                 expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                    expect.stringContaining('预览菜单操作失败')
+                    expect.stringContaining('Failed to execute')
                 );
             });
 
             it('should handle missing callbacks gracefully', async () => {
                 // Setup - no callbacks set
-                const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
 
                 // Execute
-                await executePreviewAction('刷新', null);
+                await (webviewManager as any).executePreviewAction('🔄 刷新', null);
 
                 // Verify - should not throw error
                 expect(true).toBe(true);

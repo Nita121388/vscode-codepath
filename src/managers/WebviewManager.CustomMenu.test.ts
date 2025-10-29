@@ -123,7 +123,7 @@ describe('WebviewManager Custom Menu', () => {
                 expect.objectContaining({ label: expect.stringContaining('下移') }),
             ]));
             expect(options).toEqual(expect.objectContaining({
-                placeHolder: '请选择操作 (Node: Test Node)',
+                placeHolder: '请选择操作 (节点: Test Node)',
             }));
         });
 

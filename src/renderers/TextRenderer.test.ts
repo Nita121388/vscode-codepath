@@ -3,6 +3,16 @@ import { TextRenderer } from './TextRenderer';
 import { Graph } from '../models/Graph';
 import { Node } from '../models/Node';
 
+/**
+ * 将渲染结果中的位置信息拼装为 TextRenderer 使用的格式。
+ * TextRenderer 会输出 fileName:line|fullPath，因此测试需要同步构造相同结构。
+ */
+const buildLocation = (fullPath: string, line: number): string => {
+    const parts = fullPath.split(/[/\\]/);
+    const fileName = parts[parts.length - 1];
+    return `${fileName}:${line}|${fullPath}`;
+};
+
 describe('TextRenderer', () => {
     let renderer: TextRenderer;
     let graph: Graph;
@@ -27,7 +37,9 @@ describe('TextRenderer', () => {
             const result = renderer.render(graph);
             
             expect(result).toContain('Graph: Test Graph (1 nodes, 1 roots)');
-            expect(result).toContain('└─ Root Node → main.ts:10');
+            expect(result).toContain('🌲');
+            expect(result).toContain('Root Node');
+            expect(result).toContain(buildLocation('/src/main.ts', 10));
         });
 
         it('should render hierarchical structure with parent-child relationships', () => {
@@ -44,9 +56,12 @@ describe('TextRenderer', () => {
 
             const result = renderer.render(graph);
             
-            expect(result).toContain('Parent Node → parent.ts:5 (2 children)');
-            expect(result).toContain('├─ Child 1 → child1.ts:15');
-            expect(result).toContain('└─ Child 2 → child2.ts:25');
+            expect(result).toContain('Parent Node');
+            expect(result).toContain(`${buildLocation('/src/parent.ts', 5)} (2 children)`);
+            expect(result).toContain('Child 1');
+            expect(result).toContain(buildLocation('/src/child1.ts', 15));
+            expect(result).toContain('Child 2');
+            expect(result).toContain(buildLocation('/src/child2.ts', 25));
         });
 
         it('should render multiple root nodes', () => {
@@ -58,8 +73,10 @@ describe('TextRenderer', () => {
 
             const result = renderer.render(graph);
             
-            expect(result).toContain('├─ Root 1 → root1.ts:1');
-            expect(result).toContain('└─ Root 2 → root2.ts:2');
+            expect(result).toContain('Root 1');
+            expect(result).toContain(buildLocation('/src/root1.ts', 1));
+            expect(result).toContain('Root 2');
+            expect(result).toContain(buildLocation('/src/root2.ts', 2));
         });
 
         it('should mark current node with indicator', () => {
@@ -70,7 +87,7 @@ describe('TextRenderer', () => {
             const result = renderer.render(graph);
             
             expect(result).toContain('Current Node 🟢');
-            expect(result).toContain('Current Node: Current Node → current.ts:20');
+            expect(result).toContain(`Current Node: Current Node → ${buildLocation('/src/current.ts', 20)}`);
         });
 
         it('should render deep hierarchy correctly', () => {
@@ -87,9 +104,12 @@ describe('TextRenderer', () => {
 
             const result = renderer.render(graph);
             
-            expect(result).toContain('└─ Grandparent → gp.ts:1 (1 children)');
-            expect(result).toContain('  └─ Parent → p.ts:2 (1 children)');
-            expect(result).toContain('    └─ Child → c.ts:3');
+            expect(result).toContain('Grandparent');
+            expect(result).toContain(`${buildLocation('/src/gp.ts', 1)} (1 children)`);
+            expect(result).toContain('Parent');
+            expect(result).toContain(`${buildLocation('/src/p.ts', 2)} (1 children)`);
+            expect(result).toContain('Child');
+            expect(result).toContain(buildLocation('/src/c.ts', 3));
         });
 
         it('should handle complex branching structure', () => {
@@ -112,11 +132,16 @@ describe('TextRenderer', () => {
 
             const result = renderer.render(graph);
             
-            expect(result).toContain('└─ Root → root.ts:1 (2 children)');
-            expect(result).toContain('  ├─ Branch 1 → b1.ts:10 (1 children)');
-            expect(result).toContain('  │ └─ Leaf 1 → l1.ts:30');
-            expect(result).toContain('  └─ Branch 2 → b2.ts:20 (1 children)');
-            expect(result).toContain('    └─ Leaf 2 → l2.ts:40');
+            expect(result).toContain('Root');
+            expect(result).toContain(`${buildLocation('/src/root.ts', 1)} (2 children)`);
+            expect(result).toContain('Branch 1');
+            expect(result).toContain(`${buildLocation('/src/b1.ts', 10)} (1 children)`);
+            expect(result).toContain('Leaf 1');
+            expect(result).toContain(buildLocation('/src/l1.ts', 30));
+            expect(result).toContain('Branch 2');
+            expect(result).toContain(`${buildLocation('/src/b2.ts', 20)} (1 children)`);
+            expect(result).toContain('Leaf 2');
+            expect(result).toContain(buildLocation('/src/l2.ts', 40));
         });
     });
 
@@ -134,8 +159,9 @@ describe('TextRenderer', () => {
             graph.setParentChild('middle', 'target');
 
             const result = renderer.renderPath(graph, 'target');
+            const expected = `Path: Root (${buildLocation('/src/root.ts', 1)}) → Middle (${buildLocation('/src/middle.ts', 10)}) → Target (${buildLocation('/src/target.ts', 20)})`;
             
-            expect(result).toBe('Path: Root (root.ts:1) → Middle (middle.ts:10) → Target (target.ts:20)');
+            expect(result).toBe(expected);
         });
 
         it('should handle root node path', () => {
@@ -143,8 +169,9 @@ describe('TextRenderer', () => {
             graph.addNode(root);
 
             const result = renderer.renderPath(graph, 'root');
+            const expected = `Path: Root Node (${buildLocation('/src/root.ts', 5)})`;
             
-            expect(result).toBe('Path: Root Node (root.ts:5)');
+            expect(result).toBe(expected);
         });
 
         it('should throw error for non-existent node', () => {
@@ -209,9 +236,10 @@ describe('TextRenderer', () => {
             
             expect(result).toContain('main.ts (/src/main.ts):');
             expect(result).toContain('utils.ts (/src/utils.ts):');
-            expect(result).toContain('├─ Main Function :5 (root)');
-            expect(result).toContain('├─ Function A :10 (root)');
-            expect(result).toContain('├─ Function B :20 (root)');
+            expect(result).toContain('  🌲');
+            expect(result).toContain('  ├─ Main Function :5 (root)');
+            expect(result).toContain('  ├─ Function A :10 (root)');
+            expect(result).toContain('  ├─ Function B :20 (root)');
         });
 
         it('should sort nodes by line number within files', () => {
@@ -224,7 +252,6 @@ describe('TextRenderer', () => {
             graph.addNode(node3);
 
             const result = renderer.renderByFile(graph);
-            
             const lines = result.split('\n');
             const functionAIndex = lines.findIndex(line => line.includes('Function A'));
             const functionBIndex = lines.findIndex(line => line.includes('Function B'));
@@ -315,7 +342,6 @@ describe('TextRenderer', () => {
             
             expect(result).toContain('Level 0');
             expect(result).toContain('Level 9');
-            // Should handle deep indentation without errors
             expect(result.length).toBeGreaterThan(0);
         });
     });

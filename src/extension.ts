@@ -5,6 +5,8 @@
  * which helps developers visualize and track code execution paths through interactive
  * node-based graphs.
  * 
+ * 扩展的核心入口文件，负责初始化各类管理器、注册命令，并在停用时释放资源，支撑代码路径预览能力。
+ * 
  * @author CodePath Team
  * @version 0.1.0
  * @since 2025-10-01
@@ -68,6 +70,8 @@ let extensionState: ExtensionState = {
  * This function is called when the extension is activated by VS Code. It initializes
  * all managers, sets up the workspace, loads configuration, and registers commands.
  * 
+ * 扩展被唤醒时的统一启动流程，串联配置加载、工作区检测、视图注册等步骤，确保各组件处于就绪状态。
+ * 
  * @param context - VS Code extension context providing access to extension lifecycle
  * @returns Promise that resolves when activation is complete
  * 
@@ -101,6 +105,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await loadConfiguration();
 
         // Auto-load last graph if enabled
+        // 根据用户配置自动恢复上次的图数据，提高扩展启动后的工作连续性
         await autoLoadLastGraph();
 
         // Register commands and UI components
@@ -172,7 +177,11 @@ async function initializeManagers(context: vscode.ExtensionContext): Promise<voi
         
         // Initialize configuration manager with storage
         extensionState.configManager = new ConfigurationManager(extensionState.storageManager);
-        
+
+        // Setup configuration watcher for runtime config changes
+        const configWatcher = extensionState.configManager.setupConfigurationWatcher();
+        extensionState.disposables.push(configWatcher);
+
         // Initialize graph manager
         extensionState.graphManager = new GraphManager(extensionState.storageManager);
         
@@ -394,6 +403,8 @@ export async function deactivate(): Promise<void> {
 
 /**
  * Performs cleanup of all resources
+ *
+ * 在扩展停用或异常时，统一保存状态并释放所有可释放资源，防止残留引用影响下次激活。
  */
 async function cleanup(): Promise<void> {
     try {
@@ -402,6 +413,7 @@ async function cleanup(): Promise<void> {
 
         // Dispose of all disposables
         for (const disposable of extensionState.disposables) {
+            // 逐一调用 dispose，容错处理防止单个资源释放失败影响整体流程
             try {
                 disposable.dispose();
             } catch (error) {

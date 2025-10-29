@@ -87,7 +87,7 @@ describe('ClipboardManager - Edge Cases and Error Handling', () => {
     describe('Empty clipboard paste operations', () => {
         it('should throw error when pasting with empty clipboard', async () => {
             await expect(clipboardManager.pasteNode()).rejects.toThrow(
-                'No data in clipboard. Please copy or cut a node first.'
+                '剪贴板为空'
             );
         });
 
@@ -96,14 +96,14 @@ describe('ClipboardManager - Edge Cases and Error Handling', () => {
             await clipboardManager.clearClipboard();
 
             await expect(clipboardManager.pasteNode()).rejects.toThrow(
-                'No data in clipboard. Please copy or cut a node first.'
+                '剪贴板为空'
             );
         });
 
         it('should handle multiple paste attempts with empty clipboard', async () => {
             for (let i = 0; i < 3; i++) {
                 await expect(clipboardManager.pasteNode()).rejects.toThrow(
-                    'No data in clipboard. Please copy or cut a node first.'
+                    '剪贴板为空'
                 );
             }
         });
@@ -221,7 +221,7 @@ describe('ClipboardManager - Edge Cases and Error Handling', () => {
             );
 
             await expect(clipboardManager.copyNode('test-node-1')).rejects.toThrow(
-                'Failed to copy node: Permission denied: Cannot set context'
+                'Permission denied: Cannot set context'
             );
         });
 
@@ -281,7 +281,7 @@ describe('ClipboardManager - Edge Cases and Error Handling', () => {
             });
 
             await expect(clipboardManager.copyNode('test-node-1')).rejects.toThrow(
-                'Failed to copy node: Permission denied: Cannot access graph'
+                'Permission denied: Cannot access graph'
             );
         });
     });
@@ -336,7 +336,7 @@ describe('ClipboardManager - Edge Cases and Error Handling', () => {
             mockNodes.set('circular-child', circularChild);
 
             await expect(clipboardManager.copyNode('circular-parent')).rejects.toThrow(
-                'Failed to copy node: Maximum call stack size exceeded'
+                'Maximum call stack size exceeded'
             );
         });
 
@@ -619,7 +619,7 @@ describe('ClipboardManager - Edge Cases and Error Handling', () => {
                 .mockResolvedValue(undefined);
 
             await expect(clipboardManager.copyNode('test-node-1')).rejects.toThrow(
-                'Failed to copy node: Temporary failure'
+                'Temporary failure'
             );
 
             // Second attempt should succeed

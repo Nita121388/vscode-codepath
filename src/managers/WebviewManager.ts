@@ -8,6 +8,8 @@ import { INodeManager } from '../interfaces/INodeManager';
 /**
  * WebviewManager handles VS Code webview panels for CodePath preview display
  * Implements split-screen layout with code and preview, toolbar with format toggle
+ *
+ * 统一管理所有 Webview 面板的创建、展示与销毁，并负责和预览面板之间的消息通信、格式切换等交互行为。
  */
 export class WebviewManager implements IWebviewManager {
     private panel: vscode.WebviewPanel | null = null;
@@ -56,6 +58,7 @@ export class WebviewManager implements IWebviewManager {
             return;
         }
 
+        // 优先复用已有的分栏以减少面板闪烁，从而在多编辑器场景下保持布局稳定
         // Smart column selection: use existing column if available
         const viewColumn = this.getOptimalViewColumn();
         
@@ -204,6 +207,8 @@ export class WebviewManager implements IWebviewManager {
     
     /**
      * Validates all nodes in the current graph and updates locations if needed
+     *
+     * 批量校验图节点在源码中的位置是否仍然有效，并在发生偏移时同步更新行号等信息。
      */
     private async validateAllNodeLocations(): Promise<void> {
         if (!this.nodeManager || !this.getCurrentGraphCallback) {
@@ -556,7 +561,7 @@ export class WebviewManager implements IWebviewManager {
                 if ((stat.type & vscode.FileType.Directory) !== 0) {
                     console.log('[WebviewManager] Target is directory, reveal in explorer instead of opening');
                     await vscode.commands.executeCommand('revealInExplorer', uri);
-                    vscode.window.showInformationMessage(`宸插湪璧勬簮绠＄悊鍣ㄤ腑瀹氫綅鐩綍锛?{resolvedPath}`);
+  vscode.window.showInformationMessage(`已在资源管理器中定位目录：${resolvedPath}`);
                     return;
                 }
             } catch (error) {
@@ -728,6 +733,7 @@ export class WebviewManager implements IWebviewManager {
      * Sets up message handling for webview communication
      */
     private setupMessageHandling(webview: vscode.Webview): void {
+        // 通过集中式消息分发，将 Webview 的前端事件映射到扩展后端的具体执行逻辑，避免前端直接访问内部管理器
         webview.onDidReceiveMessage(
             async (message) => {
                 switch (message.command) {
@@ -1100,6 +1106,8 @@ export class WebviewManager implements IWebviewManager {
      * Converts text content to HTML with clickable node links
      * Stores full file paths as data attributes for navigation
      * Format: "fileName:lineNumber|fullPath" or "fullPath:lineNumber"
+     *
+     * 将纯文本渲染结果转换为带有跳转能力的超链接行，保留完整路径以保证跨工作区导航的准确性。
      */
     private convertTextToClickableHtml(text: string): string {
         const lines = text.split('\n');

@@ -182,7 +182,7 @@ describe('ClipboardManager', () => {
 
         it('should throw error when node not found', async () => {
             await expect(clipboardManager.copyNode('non-existent')).rejects.toThrow(
-                'Node with ID non-existent not found'
+                '未找到ID为 non-existent 的节点'
             );
         });
 
@@ -190,17 +190,17 @@ describe('ClipboardManager', () => {
             (mockGraphManager.getCurrentGraph as Mock).mockReturnValue(null);
 
             await expect(clipboardManager.copyNode('parent-1')).rejects.toThrow(
-                'No active graph found'
+                '没有找到活动图表'
             );
         });
 
         it('should throw error for invalid node ID', async () => {
             await expect(clipboardManager.copyNode('')).rejects.toThrow(
-                'Node ID must be a non-empty string'
+                '节点ID必须是非空字符串'
             );
 
             await expect(clipboardManager.copyNode(null as any)).rejects.toThrow(
-                'Node ID must be a non-empty string'
+                '节点ID必须是非空字符串'
             );
         });
     });
@@ -236,7 +236,7 @@ describe('ClipboardManager', () => {
 
         it('should throw error when node not found', async () => {
             await expect(clipboardManager.cutNode('non-existent')).rejects.toThrow(
-                'Node with ID non-existent not found'
+                '未找到ID为 non-existent 的节点'
             );
         });
     });
@@ -366,7 +366,7 @@ describe('ClipboardManager', () => {
             await clipboardManager.clearClipboard();
 
             await expect(clipboardManager.pasteNode()).rejects.toThrow(
-                'No data in clipboard. Please copy or cut a node first.'
+                '剪贴板为空'
             );
         });
 
@@ -513,7 +513,7 @@ describe('ClipboardManager', () => {
 
             // Should throw error because VS Code command failure prevents copy completion
             await expect(clipboardManager.copyNode('child-1')).rejects.toThrow(
-                'Failed to copy node: Context command failed'
+                'Context command failed'
             );
         });
 
@@ -528,7 +528,7 @@ describe('ClipboardManager', () => {
 
             // Should throw error due to stack overflow from circular reference
             await expect(clipboardManager.copyNode('child-1')).rejects.toThrow(
-                'Failed to copy node: Maximum call stack size exceeded'
+                'Maximum call stack size exceeded'
             );
         });
 
@@ -844,7 +844,7 @@ describe('ClipboardManager', () => {
             expect(clipboardManager.hasClipboardData()).toBe(false);
 
             await expect(clipboardManager.pasteNode()).rejects.toThrow(
-                'No data in clipboard. Please copy or cut a node first.'
+                '剪贴板为空'
             );
         });
     });

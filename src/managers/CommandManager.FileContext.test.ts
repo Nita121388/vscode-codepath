@@ -197,7 +197,9 @@ describe('CommandManager File/Folder Context Support', () => {
             
             // Assert
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('选中的文件或文件夹不存在')
+                expect.stringContaining('选中的文件或文件夹不存在'),
+                expect.any(String),
+                expect.any(String)
             );
         });
 
@@ -213,7 +215,9 @@ describe('CommandManager File/Folder Context Support', () => {
             
             // Assert
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('没有权限访问')
+                expect.stringContaining('没有权限访问'),
+                expect.any(String),
+                expect.any(String)
             );
         });
     });
@@ -232,7 +236,9 @@ describe('CommandManager File/Folder Context Support', () => {
             
             // Assert
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('文件路径过长')
+                expect.stringContaining('文件路径过长'),
+                expect.any(String),
+                expect.any(String)
             );
         });
 
@@ -249,7 +255,9 @@ describe('CommandManager File/Folder Context Support', () => {
             
             // Assert
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('文件路径包含无效字符')
+                expect.stringContaining('文件路径包含无效字符'),
+                expect.any(String),
+                expect.any(String)
             );
         });
 
@@ -266,7 +274,9 @@ describe('CommandManager File/Folder Context Support', () => {
             
             // Assert
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('系统保留名称')
+                expect.stringContaining('系统保留名称'),
+                expect.any(String),
+                expect.any(String)
             );
         });
     });
@@ -390,7 +400,9 @@ describe('CommandManager File/Folder Context Support', () => {
             
             // Assert
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                expect.stringContaining('未找到活动编辑器或选中的文件/文件夹')
+                expect.stringContaining('未找到活动编辑器或选中的文件/文件夹'),
+                expect.any(String),
+                expect.any(String)
             );
         });
     });

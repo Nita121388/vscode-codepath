@@ -110,7 +110,7 @@ describe('CommandManager', () => {
         it('should register all commands', () => {
             commandManager.registerCommands(mockContext);
 
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(20);
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(30);
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createChildNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createParentNode', expect.any(Function));
@@ -127,9 +127,14 @@ describe('CommandManager', () => {
         });
 
         it('should update context state', () => {
+            // Mock the integration manager state
+            const mockState = { hasCurrentNode: true, hasGraph: true };
+            (mockIntegrationManager.getState as Mock).mockReturnValue(mockState);
+
             commandManager.registerCommands(mockContext);
 
-            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentNode', false);
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentNode', true);
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentGraph', true);
         });
     });
 
@@ -144,13 +149,20 @@ describe('CommandManager', () => {
 
             await createNodeHandler();
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('No active editor found');
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+                expect.stringContaining('未找到活动编辑器'),
+                expect.any(String),
+                expect.any(String)
+            );
         });
 
         it('should show error when no text selected', async () => {
             const mockEditor = {
                 selection: { isEmpty: true },
-                document: { uri: { fsPath: '/test/file.ts' } }
+                document: { 
+                    uri: { fsPath: '/test/file.ts' },
+                    getText: vi.fn().mockReturnValue('')
+                }
             };
             (vscode.window.activeTextEditor as any) = mockEditor;
             commandManager.registerCommands(mockContext);
@@ -160,7 +172,11 @@ describe('CommandManager', () => {
 
             await createNodeHandler();
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Please select code text first');
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+                expect.stringContaining('请先选择代码文本'),
+                expect.any(String),
+                expect.any(String)
+            );
         });
 
         it('should create node successfully with selected text', async () => {
@@ -176,11 +192,9 @@ describe('CommandManager', () => {
             };
             (vscode.window.activeTextEditor as any) = mockEditor;
 
-            const mockGraph = new Graph('test-graph', 'Test Graph');
-            const mockNode = new Node('node-1', 'test-node', '/test/file.ts', 11, 'selected code');
+            const mockNode = { id: 'node-1', name: 'selected code' };
             
-            (mockGraphManager.getCurrentGraph as Mock).mockReturnValue(mockGraph);
-            (mockNodeManager.createNode as Mock).mockResolvedValue(mockNode);
+            (mockIntegrationManager.createNodeWorkflow as Mock).mockResolvedValue(mockNode);
 
             commandManager.registerCommands(mockContext);
 
@@ -189,15 +203,11 @@ describe('CommandManager', () => {
 
             await createNodeHandler();
 
-            expect(mockNodeManager.createNode).toHaveBeenCalledWith(
+            expect(mockIntegrationManager.createNodeWorkflow).toHaveBeenCalledWith(
                 'selected code',
                 '/test/file.ts',
-                11,
-                '  selected code  '
+                11
             );
-            expect(mockNodeManager.setCurrentNode).toHaveBeenCalledWith(mockNode.id);
-            expect(mockIntegrationManager.updatePreview).toHaveBeenCalled();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Created node: test-node');
         });
 
         it('should create new graph if none exists', async () => {
@@ -213,12 +223,9 @@ describe('CommandManager', () => {
             };
             (vscode.window.activeTextEditor as any) = mockEditor;
 
-            const mockGraph = new Graph('new-graph', 'New Graph');
-            const mockNode = new Node('node-1', 'test-node', '/test/file.ts', 6, 'test code');
+            const mockNode = { id: 'node-1', name: 'test code' };
             
-            (mockGraphManager.getCurrentGraph as Mock).mockReturnValue(null);
-            (mockGraphManager.createGraph as Mock).mockResolvedValue(mockGraph);
-            (mockNodeManager.createNode as Mock).mockResolvedValue(mockNode);
+            (mockIntegrationManager.createNodeWorkflow as Mock).mockResolvedValue(mockNode);
 
             commandManager.registerCommands(mockContext);
 
@@ -227,14 +234,28 @@ describe('CommandManager', () => {
 
             await createNodeHandler();
 
-            expect(mockGraphManager.createGraph).toHaveBeenCalled();
-            expect(mockNodeManager.createNode).toHaveBeenCalled();
+            expect(mockIntegrationManager.createNodeWorkflow).toHaveBeenCalled();
         });
     });
 
     describe('handleCreateChildNode', () => {
         it('should show error when no current node', async () => {
+            // Set up active editor so getCreationContext succeeds
+            const mockEditor = {
+                selection: { 
+                    isEmpty: false,
+                    start: { line: 5 }
+                },
+                document: { 
+                    uri: { fsPath: '/test/file.ts' },
+                    getText: vi.fn().mockReturnValue('test code')
+                }
+            };
+            (vscode.window.activeTextEditor as any) = mockEditor;
             (mockNodeManager.getCurrentNode as Mock).mockReturnValue(null);
+            (mockIntegrationManager.createChildNodeWorkflow as Mock).mockRejectedValue(
+                new Error('未选择当前节点，请先创建或选择一个节点')
+            );
             commandManager.registerCommands(mockContext);
 
             const createChildHandler = (vscode.commands.registerCommand as Mock).mock.calls
@@ -242,7 +263,11 @@ describe('CommandManager', () => {
 
             await createChildHandler();
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('No current node selected');
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+                expect.stringContaining('未选择当前节点'),
+                expect.any(String),
+                expect.any(String)
+            );
         });
 
         it('should create child node successfully', async () => {
@@ -261,7 +286,7 @@ describe('CommandManager', () => {
 
             (vscode.window.activeTextEditor as any) = mockEditor;
             (mockNodeManager.getCurrentNode as Mock).mockReturnValue(mockCurrentNode);
-            (mockNodeManager.createChildNode as Mock).mockResolvedValue(mockChildNode);
+            (mockIntegrationManager.createChildNodeWorkflow as Mock).mockResolvedValue(mockChildNode);
 
             commandManager.registerCommands(mockContext);
 
@@ -270,15 +295,14 @@ describe('CommandManager', () => {
 
             await createChildHandler();
 
-            expect(mockNodeManager.createChildNode).toHaveBeenCalledWith(
-                mockCurrentNode.id,
+            expect(mockIntegrationManager.createChildNodeWorkflow).toHaveBeenCalledWith(
                 'child code',
                 '/test/child.ts',
-                10,
-                'child code'
+                10
             );
-            expect(mockNodeManager.setCurrentNode).toHaveBeenCalledWith(mockChildNode.id);
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Created child node: child-node');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+                expect.stringContaining('已标记为子节点')
+            );
         });
     });
 
@@ -292,13 +316,20 @@ describe('CommandManager', () => {
 
             await createBroNodeHandler();
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('未找到活动编辑器');
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+                expect.stringContaining('未找到活动编辑器'),
+                expect.any(String),
+                expect.any(String)
+            );
         });
 
         it('should show error when no text selected', async () => {
             const mockEditor = {
                 selection: { isEmpty: true },
-                document: { uri: { fsPath: '/test/file.ts' } }
+                document: { 
+                    uri: { fsPath: '/test/file.ts' },
+                    getText: vi.fn().mockReturnValue('')
+                }
             };
             (vscode.window.activeTextEditor as any) = mockEditor;
             commandManager.registerCommands(mockContext);
@@ -308,7 +339,11 @@ describe('CommandManager', () => {
 
             await createBroNodeHandler();
 
-            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('请先选择代码文本');
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+                expect.stringContaining('请先选择代码文本'),
+                expect.any(String),
+                expect.any(String)
+            );
         });
 
         it('should call createBroNodeWorkflow with correct parameters', async () => {
@@ -332,7 +367,7 @@ describe('CommandManager', () => {
             await createBroNodeHandler();
 
             expect(mockIntegrationManager.createBroNodeWorkflow).toHaveBeenCalledWith(
-                '  bro node code  ',
+                'bro node code',
                 '/test/bro.ts',
                 16
             );
@@ -400,7 +435,11 @@ describe('CommandManager', () => {
                 '/test/error.ts',
                 11
             );
-            expect(consoleSpy).toHaveBeenCalledWith('Create bro node command failed:', testError);
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining('[CodePath]'),
+                expect.any(Object),
+                testError
+            );
 
             consoleSpy.mockRestore();
         });
@@ -455,7 +494,7 @@ describe('CommandManager', () => {
 
             // Should pass the text as-is to integration manager (trimming is handled there)
             expect(mockIntegrationManager.createBroNodeWorkflow).toHaveBeenCalledWith(
-                '   \n  code with whitespace  \n   ',
+                'code with whitespace',
                 '/test/whitespace.ts',
                 6
             );
@@ -644,7 +683,7 @@ describe('CommandManager', () => {
 
             await switchGraphHandler();
 
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('No graphs available. Create a new graph first.');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('No CodePaths available. Create a new CodePath first.');
         });
 
         it('should switch to selected graph', async () => {
@@ -665,8 +704,7 @@ describe('CommandManager', () => {
 
             await switchGraphHandler();
 
-            expect(mockGraphManager.loadGraph).toHaveBeenCalledWith('graph1');
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Switched to graph: Graph 1');
+            expect(mockIntegrationManager.switchGraphWorkflow).toHaveBeenCalledWith('graph1');
         });
     });
 
@@ -700,7 +738,7 @@ describe('CommandManager', () => {
 
             expect(mockGraphManager.exportGraph).toHaveBeenCalledWith(mockGraph, 'md');
             expect(vscode.workspace.fs.writeFile).toHaveBeenCalledWith(mockUri, expect.any(Buffer));
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Graph exported to: /path/to/export.md');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('CodePath exported to: /path/to/export.md');
         });
     });
 
@@ -744,7 +782,7 @@ describe('CommandManager', () => {
                 await markAsNewNodeHandler();
 
                 expect(mockIntegrationManager.createNodeWorkflow).toHaveBeenCalledWith(
-                    '  selected code  ',
+                    'selected code',
                     '/test/file.ts',
                     11
                 );
@@ -774,7 +812,7 @@ describe('CommandManager', () => {
 
                 await markAsNewNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为新节点失败: Creation failed');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为新节点失败: Creation failed', '选择文本', '查看详情');
             });
         });
 
@@ -833,7 +871,7 @@ describe('CommandManager', () => {
 
                 await markAsChildNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为子节点失败: Child creation failed');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为子节点失败: Child creation failed', '选择文本', '查看详情');
             });
         });
 
@@ -892,7 +930,7 @@ describe('CommandManager', () => {
 
                 await markAsParentNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为父节点失败: Parent creation failed');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为父节点失败: Parent creation failed', '选择文本', '查看详情');
             });
         });
 
@@ -951,7 +989,7 @@ describe('CommandManager', () => {
 
                 await markAsBroNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为兄弟节点失败: Bro creation failed');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为兄弟节点失败: Bro creation failed', '选择文本', '查看详情');
             });
         });
     });
@@ -979,7 +1017,7 @@ describe('CommandManager', () => {
 
                 await copyNodeHandler();
 
-                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已复制该节点及其子节点');
+                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已复制该节点及其子节点', '粘贴');
             });
 
             it('should show error when no current node', async () => {
@@ -992,7 +1030,7 @@ describe('CommandManager', () => {
 
                 await copyNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点失败: 没有选择当前节点');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点失败: 没有选择当前节点', '选择文本', '查看详情');
             });
 
             it('should handle clipboard manager errors', async () => {
@@ -1011,7 +1049,7 @@ describe('CommandManager', () => {
 
                 await copyNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点失败: Clipboard error');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点失败: Clipboard error', '选择文本', '查看详情');
             });
         });
 
@@ -1033,7 +1071,7 @@ describe('CommandManager', () => {
                 await pasteNodeHandler();
 
                 expect(mockIntegrationManager.updatePreview).toHaveBeenCalled();
-                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已粘贴 2 个节点及其子节点');
+                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已粘贴 1 个节点及其子节点');
             });
 
             it('should paste to root when no current node', async () => {
@@ -1068,7 +1106,7 @@ describe('CommandManager', () => {
 
                 await pasteNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('粘贴节点失败: No data in clipboard');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('粘贴节点失败: No data in clipboard', '选择文本', '查看详情');
             });
         });
 
@@ -1084,7 +1122,7 @@ describe('CommandManager', () => {
 
                 await cutNodeHandler();
 
-                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已剪切该节点及其子节点');
+                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已剪切该节点及其子节点', '粘贴');
             });
 
             it('should show error when no current node', async () => {
@@ -1097,7 +1135,7 @@ describe('CommandManager', () => {
 
                 await cutNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('剪切节点失败: 没有选择当前节点');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('剪切节点失败: 没有选择当前节点', '选择文本', '查看详情');
             });
 
             it('should handle clipboard manager errors', async () => {
@@ -1116,7 +1154,7 @@ describe('CommandManager', () => {
 
                 await cutNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('剪切节点失败: Cut operation failed');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('剪切节点失败: Cut operation failed', '选择文本', '查看详情');
             });
         });
     });
@@ -1175,7 +1213,7 @@ describe('CommandManager', () => {
 
                 await moveNodeUpHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: 没有选择当前节点');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: 没有选择当前节点', '选择文本', '查看详情');
             });
 
             it('should handle node order manager errors', async () => {
@@ -1194,7 +1232,7 @@ describe('CommandManager', () => {
 
                 await moveNodeUpHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: Node not found');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: Node not found', '选择文本', '查看详情');
             });
         });
 
@@ -1243,7 +1281,7 @@ describe('CommandManager', () => {
 
                 await moveNodeDownHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: 没有选择当前节点');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: 没有选择当前节点', '选择文本', '查看详情');
             });
 
             it('should handle node order manager errors', async () => {
@@ -1262,7 +1300,7 @@ describe('CommandManager', () => {
 
                 await moveNodeDownHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: Node not found');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: Node not found', '选择文本', '查看详情');
             });
         });
     });
@@ -1453,7 +1491,9 @@ describe('CommandManager', () => {
                 await markAsNewNodeHandler(mockUri);
 
                 expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                    expect.stringContaining('标记为新节点失败')
+                    expect.stringContaining('标记为新节点失败'),
+                    '选择文本',
+                    '查看详情'
                 );
             });
         });
@@ -1504,7 +1544,9 @@ describe('CommandManager', () => {
                 await markAsNewNodeHandler();
 
                 expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                    expect.stringContaining('未找到活动编辑器或选中的文件/文件夹')
+                    expect.stringContaining('未找到活动编辑器或选中的文件/文件夹'),
+                    '选择文本',
+                    '查看详情'
                 );
             });
         });
@@ -1535,7 +1577,7 @@ describe('CommandManager', () => {
 
                 await markAsNewNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为新节点失败: Test error message');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为新节点失败: Test error message', '选择文本', '查看详情');
             });
 
             it('should handle non-Error objects', async () => {
@@ -1561,7 +1603,7 @@ describe('CommandManager', () => {
 
                 await markAsNewNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为新节点失败: Unknown error');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('标记为新节点失败: 未知错误', '选择文本', '查看详情');
             });
 
             it('should log errors to console', async () => {
@@ -1589,7 +1631,15 @@ describe('CommandManager', () => {
 
                 await markAsNewNodeHandler();
 
-                expect(consoleSpy).toHaveBeenCalledWith('[CommandManager] 标记为新节点失败:', testError);
+                expect(consoleSpy).toHaveBeenCalledWith(
+                    expect.stringContaining('[CodePath]'),
+                    expect.objectContaining({
+                        category: 'user',
+                        recoverable: true,
+                        suggestedAction: 'selectText'
+                    }),
+                    testError
+                );
 
                 consoleSpy.mockRestore();
             });
@@ -1606,7 +1656,7 @@ describe('CommandManager', () => {
 
                 await copyNodeHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点失败: 没有选择当前节点');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点失败: 没有选择当前节点', '选择文本', '查看详情');
             });
 
             it('should handle node order operation errors', async () => {
@@ -1619,7 +1669,7 @@ describe('CommandManager', () => {
 
                 await moveNodeUpHandler();
 
-                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: 没有选择当前节点');
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('移动节点失败: 没有选择当前节点', '选择文本', '查看详情');
             });
 
             it('should handle file system access errors', async () => {
@@ -1638,7 +1688,9 @@ describe('CommandManager', () => {
                 await markAsNewNodeHandler(mockUri);
 
                 expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-                    expect.stringContaining('标记为新节点失败')
+                    expect.stringContaining('标记为新节点失败'),
+                    '选择文本',
+                    '查看详情'
                 );
             });
         });
@@ -1702,8 +1754,22 @@ describe('CommandManager', () => {
         });
 
         it('should show correct success messages for clipboard operations', async () => {
-            const mockCurrentNode = { id: 'node-1', name: 'test node' };
+            const mockCurrentNode = { 
+                id: 'node-1', 
+                name: 'test node',
+                filePath: '/test/file.ts',
+                fileName: 'file.ts',
+                lineNumber: 1,
+                childIds: [],
+                parentId: null,
+                createdAt: new Date()
+            };
             (mockNodeManager.getCurrentNode as Mock).mockReturnValue(mockCurrentNode);
+            
+            // Mock active graph for clipboard operations
+            const mockGraph = { id: 'graph-1', name: 'test graph', nodes: new Map() };
+            mockGraph.nodes.set('node-1', mockCurrentNode);
+            (mockGraphManager.getCurrentGraph as Mock).mockReturnValue(mockGraph);
 
             commandManager.registerCommands(mockContext);
 
@@ -1711,19 +1777,16 @@ describe('CommandManager', () => {
             const copyHandler = (vscode.commands.registerCommand as Mock).mock.calls
                 .find(call => call[0] === 'codepath.copyNode')?.[1];
             await copyHandler();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已复制该节点及其子节点');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已复制该节点及其子节点', '粘贴');
+
+            // Reset only the showInformationMessage mock for next test
+            (vscode.window.showInformationMessage as Mock).mockClear();
 
             // Test cut
             const cutHandler = (vscode.commands.registerCommand as Mock).mock.calls
                 .find(call => call[0] === 'codepath.cutNode')?.[1];
             await cutHandler();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已剪切该节点及其子节点');
-
-            // Test paste
-            const pasteHandler = (vscode.commands.registerCommand as Mock).mock.calls
-                .find(call => call[0] === 'codepath.pasteNode')?.[1];
-            await pasteHandler();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已粘贴 1 个节点及其子节点');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已剪切该节点及其子节点', '粘贴');
         });
 
         it('should show correct success messages for node order operations', async () => {
@@ -1744,9 +1807,8 @@ describe('CommandManager', () => {
             await moveUpHandler();
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('节点已上移');
 
-            // Reset mocks
-            vi.clearAllMocks();
-            (mockNodeManager.getCurrentNode as Mock).mockReturnValue(mockCurrentNode);
+            // Reset only the showInformationMessage mock
+            (vscode.window.showInformationMessage as Mock).mockClear();
 
             // Test move down success
             const moveDownHandler = (vscode.commands.registerCommand as Mock).mock.calls
@@ -1773,9 +1835,8 @@ describe('CommandManager', () => {
             await moveUpHandler();
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('节点已在最上方');
 
-            // Reset mocks
-            vi.clearAllMocks();
-            (mockNodeManager.getCurrentNode as Mock).mockReturnValue(mockCurrentNode);
+            // Reset only the showInformationMessage mock
+            (vscode.window.showInformationMessage as Mock).mockClear();
 
             // Test move down boundary
             const moveDownHandler = (vscode.commands.registerCommand as Mock).mock.calls

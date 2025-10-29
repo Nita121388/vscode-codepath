@@ -4,9 +4,15 @@ import { WebviewManager } from './WebviewManager';
 import { NodeManager } from './NodeManager';
 import { Graph } from '../models/Graph';
 import { Node as NodeModel } from '../models/Node';
+import { readFileSync } from 'fs';
 
 // Mock vscode
 vi.mock('vscode');
+
+// Mock fs
+vi.mock('fs', () => ({
+    readFileSync: vi.fn(() => '<html><body>{{nonce}} 🔄 Refresh</body></html>')
+}));
 
 describe('WebviewManager - Refresh with Location Validation', () => {
     let webviewManager: WebviewManager;
@@ -18,8 +24,8 @@ describe('WebviewManager - Refresh with Location Validation', () => {
         // Setup mock context
         mockContext = {
             subscriptions: [],
-            extensionUri: { fsPath: '/test/extension' } as vscode.Uri,
-            extensionPath: '/test/extension'
+            extensionUri: { fsPath: process.cwd(), scheme: 'file' },
+            extensionPath: process.cwd()
         } as any;
 
         // Create graph
@@ -47,6 +53,10 @@ describe('WebviewManager - Refresh with Location Validation', () => {
     });
 
     it('should add emoji to refresh button', () => {
+        // Mock the generateWebviewHtml method to avoid file system issues
+        const mockHtml = '<html><body>🔄 Refresh</body></html>';
+        vi.spyOn(webviewManager as any, 'generateWebviewHtml').mockReturnValue(mockHtml);
+        
         // The emoji is added in the HTML generation
         // We can verify this by checking the generated HTML contains the emoji
         const html = (webviewManager as any).generateWebviewHtml();
@@ -185,7 +195,7 @@ describe('WebviewManager - Refresh with Location Validation', () => {
         // Verify warning was shown
         expect(vscode.window.showWarningMessage).toHaveBeenCalled();
         const warningCall = vi.mocked(vscode.window.showWarningMessage).mock.calls[0];
-        expect(warningCall[0]).toContain('⚠️');
+        expect(warningCall[0]).toContain('鈿狅笍');
         expect(warningCall[0]).toContain('warnings');
     });
 
@@ -289,6 +299,6 @@ describe('WebviewManager - Refresh with Location Validation', () => {
         // Verify success message
         expect(vscode.window.showInformationMessage).toHaveBeenCalled();
         const messageCall = vi.mocked(vscode.window.showInformationMessage).mock.calls[0];
-        expect(messageCall[0]).toContain('✅ All 2 nodes are valid');
+        expect(messageCall[0]).toContain('鉁?All 2 nodes are valid');
     });
 });

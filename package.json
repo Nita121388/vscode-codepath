@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -95,6 +95,11 @@
         "category": "Code Path Marker"
       },
       {
+        "command": "codepath.copyCodeContext",
+        "title": "Copy Code Context",
+        "category": "Code Path Marker"
+      },
+      {
         "command": "codepath.moveNodeUp",
         "title": "Move Up",
         "category": "Code Path Marker"
@@ -174,16 +179,16 @@
         "title": "Debug Graph State",
         "category": "Code Path Marker"
       },
-      {
-        "command": "codepath.previewGraphFile",
-        "title": "预览 CodePath",
-        "category": "Code Path Marker"
-      },
-      {
-        "command": "codepath.shareGraphFile",
-        "title": "分享 CodePath",
-        "category": "Code Path Marker"
-      }
+        {
+          "command": "codepath.previewGraphFile",
+          "title": "Preview Code Path",
+          "category": "Code Path Marker"
+        },
+        {
+          "command": "codepath.shareGraphFile",
+          "title": "Share Code Path",
+          "category": "Code Path Marker"
+        }
     ],
     "submenus": [
       {
@@ -209,7 +214,7 @@
       "codepath.submenu": [
         {
           "command": "codepath.createNode",
-          "when": "editorHasSelection || explorerResourceIsFile || explorerResourceIsFolder",
+          "when": "editorHasSelection || resourceScheme == 'file'",
           "group": "1_create@1"
         },
         {
@@ -224,7 +229,7 @@
         },
         {
           "command": "codepath.createBroNode",
-          "when": "codepath.hasCurrentNode && (editorHasSelection || explorerResourceIsFile || explorerResourceIsFolder)",
+          "when": "codepath.hasCurrentNode && (editorHasSelection || resourceScheme == 'file')",
           "group": "1_create@4"
         },
         {
@@ -241,6 +246,11 @@
           "command": "codepath.cutNode",
           "when": "codepath.hasCurrentNode",
           "group": "2_edit@3"
+        },
+        {
+          "command": "codepath.copyCodeContext",
+          "when": "editorHasSelection",
+          "group": "2_edit@4"
         },
         {
           "command": "codepath.moveNodeUp",

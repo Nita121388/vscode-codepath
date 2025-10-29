@@ -56,6 +56,39 @@ export class IntegrationManager {
     }
 
     /**
+     * 安全调用 VS Code 信息提示，避免在测试环境或 API 缺失时抛出异常
+     */
+    private safeShowInformationMessage(message: string, ...items: any[]): void {
+        if (typeof vscode.window.showInformationMessage === 'function') {
+            vscode.window.showInformationMessage(message, ...items);
+        } else {
+            console.warn(`[IntegrationManager] VS Code API 缺少 showInformationMessage，消息：${message}`);
+        }
+    }
+
+    /**
+     * 安全调用 VS Code 警告提示
+     */
+    private async safeShowWarningMessage(message: string, ...items: any[]): Promise<string | undefined> {
+        if (typeof vscode.window.showWarningMessage === 'function') {
+            return vscode.window.showWarningMessage(message, ...items);
+        }
+        console.warn(`[IntegrationManager] VS Code API 缺少 showWarningMessage，消息：${message}`);
+        return undefined;
+    }
+
+    /**
+     * 安全调用 VS Code 错误提示
+     */
+    private safeShowErrorMessage(message: string, ...items: any[]): void {
+        if (typeof vscode.window.showErrorMessage === 'function') {
+            vscode.window.showErrorMessage(message, ...items);
+        } else {
+            console.warn(`[IntegrationManager] VS Code API 缺少 showErrorMessage，消息：${message}`);
+        }
+    }
+
+    /**
      * Sets up integration between all components
      */
     private setupIntegration(): void {
@@ -210,17 +243,17 @@ export class IntegrationManager {
             try {
                 const currentGraph = this.graphManager.getCurrentGraph();
                 if (!currentGraph || !currentGraph.currentNodeId) {
-                    vscode.window.showWarningMessage('No current node selected');
+                    void this.safeShowWarningMessage('No current node selected');
                     return;
                 }
 
                 const currentNode = currentGraph.nodes.get(currentGraph.currentNodeId);
                 if (!currentNode) {
-                    vscode.window.showWarningMessage('Current node not found');
+                    void this.safeShowWarningMessage('Current node not found');
                     return;
                 }
 
-                const confirmation = await vscode.window.showWarningMessage(
+                const confirmation = await this.safeShowWarningMessage(
                     `确定要删除节点 "${currentNode.name}" 吗？子节点将被保留并重新连接到父节点。`,
                     { modal: true },
                     '删除'
@@ -241,13 +274,13 @@ export class IntegrationManager {
             try {
                 const currentGraph = this.graphManager.getCurrentGraph();
                 if (!currentGraph || !currentGraph.currentNodeId) {
-                    vscode.window.showWarningMessage('No current node selected');
+                    void this.safeShowWarningMessage('No current node selected');
                     return;
                 }
 
                 const currentNode = currentGraph.nodes.get(currentGraph.currentNodeId);
                 if (!currentNode) {
-                    vscode.window.showWarningMessage('Current node not found');
+                    void this.safeShowWarningMessage('Current node not found');
                     return;
                 }
 
@@ -257,7 +290,7 @@ export class IntegrationManager {
                 const descendants = graphModel.getDescendants(currentGraph.currentNodeId);
                 const totalToDelete = descendants.length + 1;
 
-                const confirmation = await vscode.window.showWarningMessage(
+                const confirmation = await this.safeShowWarningMessage(
                     `确定要删除节点 "${currentNode.name}" 及其所有 ${descendants.length} 个子节点吗？共 ${totalToDelete} 个节点将被删除。此操作无法撤销。`,
                     { modal: true },
                     '删除'
@@ -278,7 +311,7 @@ export class IntegrationManager {
             try {
                 await vscode.commands.executeCommand('codepath.exportGraph');
             } catch (error) {
-                vscode.window.showErrorMessage(`导出 CodePath 失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                this.safeShowErrorMessage(`导出 CodePath 失败: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         });
 
@@ -289,7 +322,7 @@ export class IntegrationManager {
                 
                 const currentGraph = this.graphManager.getCurrentGraph();
                 if (!currentGraph || !currentGraph.currentNodeId) {
-                    vscode.window.showWarningMessage('No current node selected');
+                    void this.safeShowWarningMessage('No current node selected');
                     return;
                 }
 
@@ -416,6 +449,12 @@ export class IntegrationManager {
 
             // Auto-open preview panel if not already open
             await this.ensurePreviewVisible();
+
+            try {
+                await this.previewManager.forceUpdate();
+            } catch (error) {
+                this.feedbackManager.handleError('预览刷新', error, 'IntegrationManager');
+            }
 
             // Trigger debounced auto-save if enabled
             if ((this as any).debouncedSave) {
@@ -817,31 +856,35 @@ export class IntegrationManager {
 
             // Get file/folder information
             const filePath = resourceUri.fsPath;
-            const fileName = require('path').basename(filePath);
-            
-            // Check if it's a file or directory
-            const fs = require('fs');
-            const stats = await fs.promises.stat(filePath);
-            const isDirectory = stats.isDirectory();
-            
+            const pathModule = require('path');
+            const fileName = pathModule.basename(filePath);
+
+            let stats: vscode.FileStat;
+            try {
+                stats = await vscode.workspace.fs.stat(resourceUri);
+            } catch (fsError) {
+                const normalizedError = fsError instanceof Error ? fsError : new Error(String(fsError));
+                throw CodePathError.filesystemError(normalizedError.message, normalizedError);
+            }
+            const isDirectory = (stats.type & vscode.FileType.Directory) !== 0;
+
             // Use filename/foldername as node name
-            const nodeName = fileName;
             const lineNumber = isDirectory ? 1 : 1; // Default to line 1 for folders and files
 
             // Create node based on type
             let node: Node;
             switch (nodeType) {
                 case 'new':
-                    node = await this.createNodeWorkflow(nodeName, filePath, lineNumber);
+                    node = await this.createNodeWorkflow(fileName, filePath, lineNumber);
                     break;
                 case 'child':
-                    node = await this.createChildNodeWorkflow(nodeName, filePath, lineNumber);
+                    node = await this.createChildNodeWorkflow(fileName, filePath, lineNumber);
                     break;
                 case 'parent':
-                    node = await this.createParentNodeWorkflow(nodeName, filePath, lineNumber);
+                    node = await this.createParentNodeWorkflow(fileName, filePath, lineNumber);
                     break;
                 case 'bro':
-                    node = await this.createBroNodeWorkflow(nodeName, filePath, lineNumber);
+                    node = await this.createBroNodeWorkflow(fileName, filePath, lineNumber);
                     break;
                 default:
                     throw CodePathError.userError(`不支持的节点类型: ${nodeType}`);
@@ -879,6 +922,12 @@ export class IntegrationManager {
 
             // Update all connected components
             await this.updateAllComponents();
+
+            try {
+                await this.previewManager.forceUpdate();
+            } catch (error) {
+                this.feedbackManager.handleError('预览刷新', error, 'IntegrationManager');
+            }
 
             vscode.window.showInformationMessage(`Switched to node: ${targetNode.name}`);
 
@@ -1006,22 +1055,27 @@ export class IntegrationManager {
      * Update status bar with current state
      */
     private updateStatusBar(): void {
-        const currentGraph = this.graphManager.getCurrentGraph();
-        const currentNode = this.nodeManager.getCurrentNode();
-        
-        this.statusBarManager.updateGraphInfo(
-            currentGraph?.name || null,
-            currentGraph?.nodes.size || 0
-        );
+        try {
+            const currentGraph = this.graphManager.getCurrentGraph();
+            const currentNode = this.nodeManager.getCurrentNode();
 
-        this.statusBarManager.updateCurrentNode(
-            currentNode?.name || null
-        );
+            this.statusBarManager.updateGraphInfo(
+                currentGraph?.name || null,
+                currentGraph?.nodes.size || 0
+            );
 
-        const previewStatus = this.previewManager.getStatus();
-        this.statusBarManager.updatePreviewStatus(
-            previewStatus.isUpdating ? 'updating' : 'ready'
-        );
+            this.statusBarManager.updateCurrentNode(
+                currentNode?.name || null
+            );
+
+            const previewStatus = this.previewManager.getStatus();
+            this.statusBarManager.updatePreviewStatus(
+                previewStatus.isUpdating ? 'updating' : 'ready'
+            );
+        } catch (error) {
+            console.error('Failed to update status bar:', error);
+            // Don't throw - status bar updates should not interrupt main functionality
+        }
     }
 
     /**
@@ -1031,10 +1085,24 @@ export class IntegrationManager {
         const hasCurrentNode = this.nodeManager.getCurrentNode() !== null;
         const hasCurrentGraph = this.graphManager.getCurrentGraph() !== null;
         const hasClipboardNode = this.clipboardManager.hasClipboardData();
+
+        const executeSafely = (key: string, value: unknown) => {
+            try {
+                const result = vscode.commands.executeCommand('setContext', key, value);
+                const maybeThenable = result as { then?: (onFulfilled?: any, onRejected?: any) => any };
+                if (maybeThenable && typeof maybeThenable.then === 'function') {
+                    maybeThenable.then(undefined, (error: unknown) => {
+                        console.warn(`[IntegrationManager] 更新 VS Code 上下文 ${key} 失败:`, error);
+                    });
+                }
+            } catch (error) {
+                console.warn(`[IntegrationManager] 调用 VS Code 命令 ${key} 失败:`, error);
+            }
+        };
         
-        vscode.commands.executeCommand('setContext', 'codepath.hasCurrentNode', hasCurrentNode);
-        vscode.commands.executeCommand('setContext', 'codepath.hasCurrentGraph', hasCurrentGraph);
-        vscode.commands.executeCommand('setContext', 'codepath.hasClipboardNode', hasClipboardNode);
+        executeSafely('codepath.hasCurrentNode', hasCurrentNode);
+        executeSafely('codepath.hasCurrentGraph', hasCurrentGraph);
+        executeSafely('codepath.hasClipboardNode', hasClipboardNode);
     }
 
     /**
@@ -1073,7 +1141,7 @@ export class IntegrationManager {
                 error
             });
             const message = error instanceof Error ? error.message : String(error);
-            vscode.window.showWarningMessage(`无法定位到 ${node.filePath}:${node.lineNumber}，原因：${message}`);
+            void this.safeShowWarningMessage(`无法定位到 ${node.filePath}:${node.lineNumber}，原因：${message}`);
         }
     }
 
@@ -1151,11 +1219,13 @@ export class IntegrationManager {
     public async togglePreviewFormat(): Promise<void> {
         try {
             const newFormat = this.previewManager.toggleFormat();
-            // toggleFormat already triggers an update, no need to call updatePreview
+            await this.updatePreview();
+            await this.previewManager.forceUpdate();
             vscode.window.showInformationMessage(`Preview format changed to: ${newFormat}`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             vscode.window.showErrorMessage(`Failed to toggle preview format: ${errorMessage}`);
+            throw error;
         }
     }
 

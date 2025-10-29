@@ -74,6 +74,8 @@ export class RootSymbolService {
         const preferences = this.resolvePreferences();
 
         // 自定义表情覆盖模式优先
+        // 自定义覆盖模式优先级最高，若存在符合条件的符号直接返回
+        // 自定义覆盖模式优先级最高，若存在符合条件的符号直接返回
         if (preferences.customSymbolMode === 'override') {
             const customSymbol = this.selectCustomSymbol(preferences, today);
             if (customSymbol) {
@@ -81,7 +83,7 @@ export class RootSymbolService {
             }
         }
 
-        // 节日优先匹配
+                // 节日主题优先匹配
         if (preferences.enableHolidayThemes) {
             const holidaySymbol = this.resolveHolidaySymbol(today);
             if (holidaySymbol) {
@@ -89,7 +91,7 @@ export class RootSymbolService {
             }
         }
 
-        // 季节主题
+                // 季节主题暂时关闭，如需启用可取消注释
         // if (preferences.enableSeasonalThemes) {
         //     const seasonalSymbol = this.resolveSeasonalSymbol(today);
         //     if (seasonalSymbol) {
@@ -98,6 +100,8 @@ export class RootSymbolService {
         // }
 
         // 自定义兜底
+        // 自定义符号作为兜底策略，仅在其他主题都未命中时启用
+                // 自定义符号作为兜底策略，仅在其他主题都未命中时启用
         if (preferences.customSymbolMode === 'fallback') {
             const customSymbol = this.selectCustomSymbol(preferences, today);
             if (customSymbol) {
@@ -115,27 +119,27 @@ export class RootSymbolService {
         const month = date.getMonth() + 1;
         const day = date.getDate();
 
-        // 圣诞节
+                // 圣诞节：固定日期 12 月 24-26 日
         if (this.isWithinRange(date, { month: 12, day: 24 }, { month: 12, day: 26 })) {
             return this.pickSymbol(['🎄'], 'christmas', date, 'fixed');
         }
 
-        // 万圣节
+                // 万圣节：固定日期 10 月 31 日
         if (this.isWithinRange(date, { month: 10, day: 31 }, { month: 10, day: 31 })) {
             return this.pickSymbol(['🎃', '👻'], 'halloween', date, 'daily');
         }
 
-        // 情人节
+                // 情人节：固定日期 2 月 14 日
         if (month === 2 && day === 14) {
             return this.pickSymbol(['💖'], 'valentines', date, 'fixed');
         }
 
-        // 春节（支持 2023-2035 年的精确日期）
+                // 春节：支持 2023-2035 年的精确日期范围
         if (this.isFestival(date, CHINESE_NEW_YEAR)) {
             return this.pickSymbol(['🧧', '🧨'], 'spring-festival', date, 'daily');
         }
 
-        // 中秋节（支持 2023-2035 年的精确日期）
+                // 中秋节：支持 2023-2035 年的精确日期范围
         if (this.isFestival(date, MID_AUTUMN_FESTIVAL)) {
             return this.pickSymbol(['🥮'], 'mid-autumn', date, 'fixed');
         }

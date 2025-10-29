@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { Configuration } from '../types';
 
 export interface IConfigurationManager {
@@ -8,4 +9,5 @@ export interface IConfigurationManager {
     resetToDefaults(): Promise<void>;
     validateConfiguration(config: Partial<Configuration>): boolean;
     getDefaultConfiguration(): Configuration;
+    setupConfigurationWatcher(): vscode.Disposable;
 }

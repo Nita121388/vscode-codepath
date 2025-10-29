@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { GraphManager } from './GraphManager';
 import { NodeManager } from './NodeManager';
 import { IntegrationManager } from './IntegrationManager';
@@ -6,6 +7,7 @@ import { ClipboardManager } from './ClipboardManager';
 import { NodeOrderManager } from './NodeOrderManager';
 import { FeedbackManager } from './FeedbackManager';
 import { CodePathError } from '../types/errors';
+import { executeCommandSafely } from '../utils/vscodeHelpers';
 
 /**
  * Context information for creating nodes
@@ -83,6 +85,7 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.debugGraphState', this.handleDebugGraphState.bind(this));
         this.registerCommand(context, 'codepath.previewGraphFile', this.handlePreviewGraphFile.bind(this));
         this.registerCommand(context, 'codepath.shareGraphFile', this.handleShareGraphFile.bind(this));
+        this.registerCommand(context, 'codepath.copyCodeContext', this.handleCopyCodeContext.bind(this));
 
         // Initialize context state
         this.updateContextState();
@@ -105,52 +108,28 @@ export class CommandManager {
      * Handle creating a new node from selected text
      */
     private async handleCreateNode(uri?: vscode.Uri): Promise<void> {
-        try {
-            const context = await this.getCreationContext(uri);
-            await this.integrationManager.createNodeWorkflow(context.name, context.filePath, context.lineNumber);
-        } catch (error) {
-            // Error handling is done in IntegrationManager
-            console.error('Create node command failed:', error);
-        }
+        return this.handleMarkAsNewNode(uri);
     }
 
     /**
      * Handle creating a child node
      */
     private async handleCreateChildNode(uri?: vscode.Uri): Promise<void> {
-        try {
-            const context = await this.getCreationContext(uri);
-            await this.integrationManager.createChildNodeWorkflow(context.name, context.filePath, context.lineNumber);
-        } catch (error) {
-            // Error handling is done in IntegrationManager
-            console.error('Create child node command failed:', error);
-        }
+        return this.handleMarkAsChildNode(uri);
     }
 
     /**
      * Handle creating a parent node
      */
     private async handleCreateParentNode(uri?: vscode.Uri): Promise<void> {
-        try {
-            const context = await this.getCreationContext(uri);
-            await this.integrationManager.createParentNodeWorkflow(context.name, context.filePath, context.lineNumber);
-        } catch (error) {
-            // Error handling is done in IntegrationManager
-            console.error('Create parent node command failed:', error);
-        }
+        return this.handleMarkAsParentNode(uri);
     }
 
     /**
      * Handle creating a bro node (sibling node)
      */
     private async handleCreateBroNode(uri?: vscode.Uri): Promise<void> {
-        try {
-            const context = await this.getCreationContext(uri);
-            await this.integrationManager.createBroNodeWorkflow(context.name, context.filePath, context.lineNumber);
-        } catch (error) {
-            // Error handling is done in IntegrationManager
-            console.error('Create bro node command failed:', error);
-        }
+        return this.handleMarkAsBroNode(uri);
     }
 
     /**
@@ -164,7 +143,7 @@ export class CommandManager {
             );
             this.showSuccess(`已标记为新节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
         } catch (error) {
-            this.handleError('标记为新节点失败', error);
+            this.handleError('标记为新节点', error);
         }
     }
 
@@ -179,7 +158,7 @@ export class CommandManager {
             );
             this.showSuccess(`已标记为子节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
         } catch (error) {
-            this.handleError('标记为子节点失败', error);
+            this.handleError('标记为子节点', error);
         }
     }
 
@@ -194,7 +173,7 @@ export class CommandManager {
             );
             this.showSuccess(`已标记为父节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
         } catch (error) {
-            this.handleError('标记为父节点失败', error);
+            this.handleError('标记为父节点', error);
         }
     }
 
@@ -209,7 +188,7 @@ export class CommandManager {
             );
             this.showSuccess(`已标记为兄弟节点: ${node.name}`, `文件: ${node.filePath}, 行号: ${node.lineNumber}`);
         } catch (error) {
-            this.handleError('标记为兄弟节点失败', error);
+            this.handleError('标记为兄弟节点', error);
         }
     }
 
@@ -225,10 +204,10 @@ export class CommandManager {
 
             await this.clipboardManager.copyNode(currentNode.id);
             this.showSuccess('已复制该节点及其子节点', `节点: ${currentNode.name}`, '粘贴', () => {
-                vscode.commands.executeCommand('codepath.pasteNode');
+                executeCommandSafely('codepath.pasteNode');
             });
         } catch (error) {
-            this.handleError('复制节点失败', error);
+            this.handleError('复制节点', error);
         }
     }
 
@@ -246,7 +225,7 @@ export class CommandManager {
             const rootNodeCount = pastedNodes.length;
             this.showSuccess(`已粘贴 ${rootNodeCount} 个节点及其子节点`, `成功粘贴到当前位置`);
         } catch (error) {
-            this.handleError('粘贴节点失败', error);
+            this.handleError('粘贴节点', error);
         }
     }
 
@@ -262,10 +241,10 @@ export class CommandManager {
 
             await this.clipboardManager.cutNode(currentNode.id);
             this.showSuccess('已剪切该节点及其子节点', `节点: ${currentNode.name}`, '粘贴', () => {
-                vscode.commands.executeCommand('codepath.pasteNode');
+                executeCommandSafely('codepath.pasteNode');
             });
         } catch (error) {
-            this.handleError('剪切节点失败', error);
+            this.handleError('剪切节点', error);
         }
     }
 
@@ -287,7 +266,7 @@ export class CommandManager {
                 this.showInfo('节点已在最上方', `节点: ${currentNode.name}`);
             }
         } catch (error) {
-            this.handleError('移动节点失败', error);
+            this.handleError('移动节点', error);
         }
     }
 
@@ -309,7 +288,7 @@ export class CommandManager {
                 this.showInfo('节点已在最下方', `节点: ${currentNode.name}`);
             }
         } catch (error) {
-            this.handleError('移动节点失败', error);
+            this.handleError('移动节点', error);
         }
     }
 
@@ -951,6 +930,65 @@ export class CommandManager {
     }
 
     /**
+     * 复制选中代码的上下文到剪贴板
+     */
+    private async handleCopyCodeContext(): Promise<void> {
+        try {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                this.showWarning('当前没有活动的文本编辑器');
+                return;
+            }
+
+            const selections = editor.selections?.length ? editor.selections : [editor.selection];
+            const segments: string[] = [];
+
+            for (const selection of selections) {
+                if (selection.isEmpty) {
+                    continue;
+                }
+
+                const selectedText = editor.document.getText(selection);
+                if (!selectedText.trim()) {
+                    continue;
+                }
+
+                const startLine = selection.start.line + 1;
+                let endLine = selection.end.line + 1;
+
+                if (selection.end.character === 0 && selection.end.line > selection.start.line) {
+                    endLine -= 1;
+                }
+
+                const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+                let relativePath = workspaceFolder
+                    ? path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath)
+                    : editor.document.uri.fsPath;
+
+                if (!relativePath) {
+                    relativePath = editor.document.fileName || 'untitled';
+                }
+
+                const lineLabel = endLine > startLine ? `${startLine}-${endLine}` : `${startLine}`;
+                const header = `${relativePath}:${lineLabel}`;
+                const snippet = `\`\`\`\n${selectedText.replace(/\r\n/g, '\n')}\n\`\`\``;
+
+                segments.push(`${header}\n${snippet}`);
+            }
+
+            if (!segments.length) {
+                this.showWarning('请先选择需要复制的代码片段');
+                return;
+            }
+
+            await vscode.env.clipboard.writeText(segments.join('\n\n'));
+            this.showSuccess('代码上下文已复制到剪贴板', `共复制 ${segments.length} 个片段`);
+        } catch (error) {
+            this.handleError('复制代码上下文', error);
+        }
+    }
+
+    /**
      * 获取创建上下文，支持编辑器与资源管理器两种入口
      */
     private async getCreationContext(uri?: vscode.Uri): Promise<CreationContext> {
@@ -1218,8 +1256,9 @@ export class CommandManager {
         // This is now handled by IntegrationManager
         // Keep this method for backward compatibility but delegate to integration manager
         const state = this.integrationManager.getState();
-        vscode.commands.executeCommand('setContext', 'codepath.hasCurrentNode', state.hasCurrentNode);
-        vscode.commands.executeCommand('setContext', 'codepath.hasCurrentGraph', state.hasGraph);
+        
+        executeCommandSafely('setContext', 'codepath.hasCurrentNode', state.hasCurrentNode);
+        executeCommandSafely('setContext', 'codepath.hasCurrentGraph', state.hasGraph);
     }
 
     /**

@@ -4,22 +4,29 @@ import { FeedbackManager } from '../managers/FeedbackManager';
 import { CodePathError } from '../types/errors';
 
 // Mock VS Code API
-vi.mock('vscode', () => ({
-    window: {
-        createOutputChannel: vi.fn(() => ({
-            appendLine: vi.fn(),
-            show: vi.fn(),
-            clear: vi.fn(),
-            dispose: vi.fn()
-        })),
-        showInformationMessage: vi.fn(),
-        showWarningMessage: vi.fn(),
-        showErrorMessage: vi.fn()
-    },
-    commands: {
-        executeCommand: vi.fn()
-    }
-}));
+vi.mock('vscode', async () => {
+    const actual = await import('../__mocks__/vscode');
+
+    return {
+        ...actual,
+        window: {
+            ...actual.window,
+            createOutputChannel: vi.fn(() => ({
+                appendLine: vi.fn(),
+                show: vi.fn(),
+                clear: vi.fn(),
+                dispose: vi.fn()
+            })),
+            showInformationMessage: vi.fn().mockResolvedValue(undefined),
+            showWarningMessage: vi.fn().mockResolvedValue(undefined),
+            showErrorMessage: vi.fn().mockResolvedValue(undefined)
+        },
+        commands: {
+            ...actual.commands,
+            executeCommand: vi.fn().mockResolvedValue(undefined)
+        }
+    };
+});
 
 describe('Error Handling Integration', () => {
     let feedbackManager: FeedbackManager;

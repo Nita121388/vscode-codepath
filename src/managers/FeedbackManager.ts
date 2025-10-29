@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CodePathError } from '../types/errors';
 import { UserFeedbackMessage, OperationFeedback, LogLevel, LogEntry } from '../types';
+import { executeCommandSafely } from '../utils/vscodeHelpers';
 
 /**
  * Manages user feedback, error handling, and debug logging for the CodePath extension
@@ -11,7 +12,28 @@ export class FeedbackManager {
     private readonly maxLogEntries = 1000;
 
     constructor() {
-        this.outputChannel = vscode.window.createOutputChannel('CodePath Debug');
+        this.outputChannel = this.ensureOutputChannel();
+    }
+
+    /**
+     * 确保无论在 VS Code 还是测试环境都能获取到输出通道
+     */
+    private ensureOutputChannel(): vscode.OutputChannel {
+        if (typeof vscode.window.createOutputChannel === 'function') {
+            return vscode.window.createOutputChannel('CodePath Debug');
+        }
+
+        const stubChannel = {
+            append: () => {},
+            appendLine: () => {},
+            replace: () => {},
+            show: () => {},
+            hide: () => {},
+            clear: () => {},
+            dispose: () => {}
+        };
+
+        return stubChannel as unknown as vscode.OutputChannel;
     }
 
     /**
@@ -21,11 +43,14 @@ export class FeedbackManager {
         this.log('info', 'FeedbackManager', 'showSuccess', message, { details });
         
         if (actionLabel && action) {
-            vscode.window.showInformationMessage(message, actionLabel).then(selection => {
-                if (selection === actionLabel) {
-                    action();
-                }
-            });
+            const result = vscode.window.showInformationMessage(message, actionLabel);
+            if (result && typeof result.then === 'function') {
+                result.then(selection => {
+                    if (selection === actionLabel) {
+                        action();
+                    }
+                });
+            }
         } else {
             vscode.window.showInformationMessage(message);
         }
@@ -86,23 +111,42 @@ export class FeedbackManager {
         const recoveryActionLabel = this.getRecoveryActionLabel(codePathError.suggestedAction);
         
         if (recoveryActionLabel && codePathError.recoverable) {
-            vscode.window.showErrorMessage(
+            // Check if VS Code API is available
+            if (!vscode.window.showErrorMessage) {
+                console.error('VS Code API unavailable:', codePathError.userMessage);
+                return;
+            }
+            
+            const message = vscode.window.showErrorMessage(
                 codePathError.userMessage,
                 recoveryActionLabel,
                 '查看详情'
-            ).then(selection => {
-                if (selection === recoveryActionLabel) {
-                    this.executeRecoveryAction(codePathError.suggestedAction);
-                } else if (selection === '查看详情') {
-                    this.showErrorDetails(codePathError);
-                }
-            });
+            );
+
+            if (message && typeof (message as any).then === 'function') {
+                (message as Promise<string | undefined>).then(selection => {
+                    if (selection === recoveryActionLabel) {
+                        this.executeRecoveryAction(codePathError.suggestedAction);
+                    } else if (selection === '查看详情') {
+                        this.showErrorDetails(codePathError);
+                    }
+                });
+            }
         } else {
-            vscode.window.showErrorMessage(codePathError.userMessage, '查看详情').then(selection => {
-                if (selection === '查看详情') {
-                    this.showErrorDetails(codePathError);
-                }
-            });
+            // Check if VS Code API is available
+            if (!vscode.window.showErrorMessage) {
+                console.error('VS Code API unavailable:', codePathError.userMessage);
+                return;
+            }
+            
+            const message = vscode.window.showErrorMessage(codePathError.userMessage, '查看详情');
+            if (message && typeof (message as any).then === 'function') {
+                (message as Promise<string | undefined>).then(selection => {
+                    if (selection === '查看详情') {
+                        this.showErrorDetails(codePathError);
+                    }
+                });
+            }
         }
     }
 
@@ -129,11 +173,14 @@ export class FeedbackManager {
             const actionLabel = feedback.suggestedAction ? this.getRecoveryActionLabel(feedback.suggestedAction as any) : undefined;
             
             if (actionLabel) {
-                vscode.window.showErrorMessage(feedback.message, actionLabel).then(selection => {
-                    if (selection === actionLabel && feedback.suggestedAction) {
-                        this.executeRecoveryAction(feedback.suggestedAction as any);
-                    }
-                });
+                const message = vscode.window.showErrorMessage(feedback.message, actionLabel);
+                if (message && typeof (message as any).then === 'function') {
+                    (message as Promise<string | undefined>).then(selection => {
+                        if (selection === actionLabel && feedback.suggestedAction) {
+                            this.executeRecoveryAction(feedback.suggestedAction as any);
+                        }
+                    });
+                }
             } else {
                 vscode.window.showErrorMessage(feedback.message);
             }
@@ -168,7 +215,7 @@ export class FeedbackManager {
         this.outputChannel.appendLine(logMessage);
         
         if (data) {
-            this.outputChannel.appendLine(`  Data: ${JSON.stringify(data, null, 2)}`);
+            this.outputChannel.appendLine(`  Data: ${JSON.stringify(data)}`);
         }
         
         if (error) {
@@ -246,10 +293,10 @@ export class FeedbackManager {
                 vscode.window.showInformationMessage('请检查文件权限并确保有足够的访问权限');
                 break;
             case 'restoreBackup':
-                vscode.commands.executeCommand('codepath.restoreBackup');
+                executeCommandSafely('codepath.restoreBackup');
                 break;
             case 'switchToTextView':
-                vscode.commands.executeCommand('codepath.togglePreviewFormat');
+                executeCommandSafely('codepath.togglePreviewFormat');
                 break;
             case 'reduceNodes':
                 vscode.window.showInformationMessage('请考虑删除一些节点以提高性能');
@@ -259,13 +306,13 @@ export class FeedbackManager {
                 vscode.window.showInformationMessage('剪贴板已清空');
                 break;
             case 'refreshPreview':
-                vscode.commands.executeCommand('codepath.refreshPreview');
+                executeCommandSafely('codepath.refreshPreview');
                 break;
             case 'reloadExtension':
-                vscode.commands.executeCommand('workbench.action.reloadWindow');
+                executeCommandSafely('workbench.action.reloadWindow');
                 break;
             case 'checkConfiguration':
-                vscode.commands.executeCommand('workbench.action.openSettings', 'codepath');
+                executeCommandSafely('workbench.action.openSettings', 'codepath');
                 break;
             case 'contactSupport':
                 vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-repo/issues'));

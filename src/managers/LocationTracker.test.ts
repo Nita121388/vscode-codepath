@@ -1,62 +1,68 @@
-import * as assert from 'assert';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as vscode from 'vscode';
 import { LocationTracker } from './LocationTracker';
 import { Node } from '../types';
 
-suite('LocationTracker Test Suite', () => {
+// Mock VS Code API
+vi.mock('vscode', async () => {
+    const actual = await vi.importActual('../__mocks__/vscode');
+    return actual;
+});
+
+describe('LocationTracker Test Suite', () => {
     let tracker: LocationTracker;
 
-    setup(() => {
+    beforeEach(() => {
         tracker = new LocationTracker();
     });
 
-    teardown(() => {
+    afterEach(() => {
         tracker.dispose();
     });
 
-    suite('generateCodeHash', () => {
-        test('should generate consistent hash for same code', () => {
+    describe('generateCodeHash', () => {
+        it('should generate consistent hash for same code', () => {
             const code = 'function test() { return 42; }';
             const hash1 = tracker.generateCodeHash(code);
             const hash2 = tracker.generateCodeHash(code);
             
-            assert.strictEqual(hash1, hash2);
-            assert.strictEqual(hash1.length, 16);
+            expect(hash1).toBe(hash2);
+            expect(hash1.length).toBe(16);
         });
 
-        test('should generate different hashes for different code', () => {
+        it('should generate different hashes for different code', () => {
             const code1 = 'function test() { return 42; }';
             const code2 = 'function test() { return 43; }';
             
             const hash1 = tracker.generateCodeHash(code1);
             const hash2 = tracker.generateCodeHash(code2);
             
-            assert.notStrictEqual(hash1, hash2);
+            expect(hash1).not.toBe(hash2);
         });
 
-        test('should normalize whitespace', () => {
+        it('should normalize whitespace', () => {
             const code1 = '  function test() { return 42; }  ';
             const code2 = 'function test() { return 42; }';
             
             const hash1 = tracker.generateCodeHash(code1);
             const hash2 = tracker.generateCodeHash(code2);
             
-            assert.strictEqual(hash1, hash2);
+            expect(hash1).toBe(hash2);
         });
 
-        test('should handle empty code', () => {
+        it('should handle empty code', () => {
             const hash = tracker.generateCodeHash('');
-            assert.strictEqual(hash, '');
+            expect(hash).toBe('');
         });
 
-        test('should handle whitespace-only code', () => {
+        it('should handle whitespace-only code', () => {
             const hash = tracker.generateCodeHash('   \n  \t  ');
-            assert.strictEqual(hash, '');
+            expect(hash).toBe('');
         });
     });
 
-    suite('validateLocation', () => {
-        test('should return failed for non-existent file', async () => {
+    describe('validateLocation', () => {
+        it('should return failed for non-existent file', async () => {
             const node: Node = {
                 id: 'test-1',
                 name: 'Test Node',
@@ -69,17 +75,16 @@ suite('LocationTracker Test Suite', () => {
 
             const result = await tracker.validateLocation(node);
             
-            assert.strictEqual(result.isValid, false);
-            assert.strictEqual(result.confidence, 'failed');
-            assert.strictEqual(result.reason, 'File not found');
+            expect(result.isValid).toBe(false);
+            expect(result.confidence).toBe('failed');
+            expect(result.reason).toBe('File not found');
         });
 
-        test('should return failed for line number exceeding file length', async () => {
+        it('should return failed for line number exceeding file length', async () => {
             // Create a temporary test file
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                assert.fail('No workspace folder available');
-                return;
+                throw new Error('No workspace folder available');
             }
 
             const testFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test-location-tracker.ts');
@@ -100,20 +105,19 @@ suite('LocationTracker Test Suite', () => {
 
                 const result = await tracker.validateLocation(node);
                 
-                assert.strictEqual(result.isValid, false);
-                assert.strictEqual(result.confidence, 'failed');
-                assert.ok(result.reason?.includes('exceeds file length'));
+                expect(result.isValid).toBe(false);
+                expect(result.confidence).toBe('failed');
+                expect(result.reason).toContain('exceeds file length');
             } finally {
                 // Clean up
                 await vscode.workspace.fs.delete(testFileUri);
             }
         });
 
-        test('should return exact match for valid location with matching code', async () => {
+        it('should return exact match for valid location with matching code', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                assert.fail('No workspace folder available');
-                return;
+                throw new Error('No workspace folder available');
             }
 
             const testFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test-location-exact.ts');
@@ -135,18 +139,17 @@ suite('LocationTracker Test Suite', () => {
 
                 const result = await tracker.validateLocation(node);
                 
-                assert.strictEqual(result.isValid, true);
-                assert.strictEqual(result.confidence, 'exact');
+                expect(result.isValid).toBe(true);
+                expect(result.confidence).toBe('exact');
             } finally {
                 await vscode.workspace.fs.delete(testFileUri);
             }
         });
 
-        test('should suggest nearby location when code moved', async () => {
+        it('should suggest nearby location when code moved', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                assert.fail('No workspace folder available');
-                return;
+                throw new Error('No workspace folder available');
             }
 
             const testFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test-location-moved.ts');
@@ -168,22 +171,21 @@ suite('LocationTracker Test Suite', () => {
 
                 const result = await tracker.validateLocation(node);
                 
-                assert.strictEqual(result.isValid, false);
-                assert.ok(result.suggestedLocation);
-                assert.strictEqual(result.suggestedLocation?.lineNumber, 4); // Actual location
-                assert.ok(['high', 'medium'].includes(result.confidence));
+                expect(result.isValid).toBe(false);
+                expect(result.suggestedLocation).toBeDefined();
+                expect(result.suggestedLocation?.lineNumber).toBe(4); // Actual location
+                expect(['high', 'medium']).toContain(result.confidence);
             } finally {
                 await vscode.workspace.fs.delete(testFileUri);
             }
         });
     });
 
-    suite('navigateToNode', () => {
-        test('should navigate successfully to exact location', async () => {
+    describe('navigateToNode', () => {
+        it('should navigate successfully to exact location', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                assert.fail('No workspace folder available');
-                return;
+                throw new Error('No workspace folder available');
             }
 
             const testFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test-navigate.ts');
@@ -205,20 +207,19 @@ suite('LocationTracker Test Suite', () => {
 
                 const result = await tracker.navigateToNode(node);
                 
-                assert.strictEqual(result.success, true);
-                assert.strictEqual(result.confidence, 'exact');
-                assert.ok(result.actualLocation);
-                assert.strictEqual(result.actualLocation?.lineNumber, 2);
+                expect(result.success).toBe(true);
+                expect(result.confidence).toBe('exact');
+                expect(result.actualLocation).toBeDefined();
+                expect(result.actualLocation?.lineNumber).toBe(2);
             } finally {
                 await vscode.workspace.fs.delete(testFileUri);
             }
         });
 
-        test('should navigate to suggested location when code moved', async () => {
+        it('should navigate to suggested location when code moved', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                assert.fail('No workspace folder available');
-                return;
+                throw new Error('No workspace folder available');
             }
 
             const testFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test-navigate-moved.ts');
@@ -240,17 +241,17 @@ suite('LocationTracker Test Suite', () => {
 
                 const result = await tracker.navigateToNode(node);
                 
-                assert.strictEqual(result.success, true);
-                assert.ok(['high', 'medium'].includes(result.confidence));
-                assert.ok(result.actualLocation);
-                assert.strictEqual(result.actualLocation?.lineNumber, 4);
-                assert.ok(result.message);
+                expect(result.success).toBe(true);
+                expect(['high', 'medium']).toContain(result.confidence);
+                expect(result.actualLocation).toBeDefined();
+                expect(result.actualLocation?.lineNumber).toBe(4);
+                expect(result.message).toBeDefined();
             } finally {
                 await vscode.workspace.fs.delete(testFileUri);
             }
         });
 
-        test('should fail navigation for non-existent file', async () => {
+        it('should fail navigation for non-existent file', async () => {
             const node: Node = {
                 id: 'test-7',
                 name: 'Test Node',
@@ -263,18 +264,17 @@ suite('LocationTracker Test Suite', () => {
 
             const result = await tracker.navigateToNode(node);
             
-            assert.strictEqual(result.success, false);
-            assert.strictEqual(result.confidence, 'failed');
-            assert.ok(result.message);
+            expect(result.success).toBe(false);
+            expect(result.confidence).toBe('failed');
+            expect(result.message).toBeDefined();
         });
     });
 
-    suite('updateNodeLocation', () => {
-        test('should update node location with new code snippet', async () => {
+    describe('updateNodeLocation', () => {
+        it('should update node location with new code snippet', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                assert.fail('No workspace folder available');
-                return;
+                throw new Error('No workspace folder available');
             }
 
             const testFileUri = vscode.Uri.joinPath(workspaceFolder.uri, 'test-update-location.ts');
@@ -300,9 +300,9 @@ suite('LocationTracker Test Suite', () => {
                     2
                 );
                 
-                assert.strictEqual(updatedNode.filePath, testFileUri.fsPath);
-                assert.strictEqual(updatedNode.lineNumber, 2);
-                assert.strictEqual(updatedNode.codeSnippet, 'return 42;');
+                expect(updatedNode.filePath).toBe(testFileUri.fsPath);
+                expect(updatedNode.lineNumber).toBe(2);
+                expect(updatedNode.codeSnippet).toBe('return 42;');
             } finally {
                 await vscode.workspace.fs.delete(testFileUri);
             }

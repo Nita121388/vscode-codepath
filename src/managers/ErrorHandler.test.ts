@@ -19,8 +19,8 @@ vi.mock('vscode', () => ({
     }
 }));
 
-// Create mock message items
-const createMockMessageItem = (title: string) => ({ title });
+// Create mock message items - VS Code showErrorMessage returns the selected string directly
+const createMockMessageItem = (title: string) => title;
 
 describe('ErrorHandler', () => {
     let errorHandler: ErrorHandler;
@@ -124,7 +124,7 @@ describe('ErrorHandler', () => {
 
     describe('showErrorWithRecovery', () => {
         it('should show error with recovery action', async () => {
-            const error = CodePathError.userError('Test error');
+            const error = CodePathError.userError('Test error', 'Test error', 'selectText');
             const selectTextItem = createMockMessageItem('Select Text');
             vi.mocked(vscode.window.showErrorMessage).mockResolvedValue(selectTextItem);
             
@@ -161,7 +161,7 @@ describe('ErrorHandler', () => {
 
     describe('recovery actions', () => {
         it('should execute selectText recovery', async () => {
-            const error = CodePathError.userError('Test error');
+            const error = CodePathError.userError('Test error', 'Test error', 'selectText');
             vi.mocked(vscode.window.showErrorMessage).mockResolvedValue(createMockMessageItem('Select Text'));
             
             const result = await errorHandler.showErrorWithRecovery(error);
@@ -171,7 +171,7 @@ describe('ErrorHandler', () => {
         });
 
         it('should execute checkPermissions recovery', async () => {
-            const error = CodePathError.filesystemError('File error');
+            const error = CodePathError.filesystemError('File error', 'File error', 'checkPermissions');
             vi.mocked(vscode.window.showErrorMessage).mockResolvedValue(createMockMessageItem('Check Permissions'));
             
             const result = await errorHandler.showErrorWithRecovery(error);
@@ -183,7 +183,7 @@ describe('ErrorHandler', () => {
         });
 
         it('should execute switchToTextView recovery', async () => {
-            const error = CodePathError.renderingError('Render error');
+            const error = CodePathError.renderingError('Render error', 'Render error', 'switchToTextView');
             vi.mocked(vscode.window.showErrorMessage).mockResolvedValue(createMockMessageItem('Switch to Text View'));
             vi.mocked(vscode.commands.executeCommand).mockResolvedValue(undefined);
             
@@ -205,7 +205,7 @@ describe('ErrorHandler', () => {
         });
 
         it('should execute reduceNodes recovery', async () => {
-            const error = CodePathError.performanceError('Too many nodes');
+            const error = CodePathError.performanceError('Too many nodes', 'Too many nodes', 'reduceNodes');
             vi.mocked(vscode.window.showErrorMessage).mockResolvedValue(createMockMessageItem('Reduce Nodes'));
             
             const result = await errorHandler.showErrorWithRecovery(error);
@@ -236,7 +236,7 @@ describe('ErrorHandler', () => {
 
     describe('error handling in recovery actions', () => {
         it('should handle errors in recovery action execution', async () => {
-            const error = CodePathError.renderingError('Render error');
+            const error = CodePathError.renderingError('Render error', 'Render error', 'switchToTextView');
             vi.mocked(vscode.window.showErrorMessage).mockResolvedValue(createMockMessageItem('Switch to Text View'));
             vi.mocked(vscode.commands.executeCommand).mockRejectedValue(new Error('Command failed'));
             

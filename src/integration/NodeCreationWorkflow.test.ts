@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+﻿import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import * as vscode from 'vscode';
 import { IntegrationManager } from '../managers/IntegrationManager';
 import { GraphManager } from '../managers/GraphManager';
@@ -10,41 +10,46 @@ import { ConfigurationManager } from '../managers/ConfigurationManager';
 import { StorageManager } from '../managers/StorageManager';
 import { CodePathError } from '../types/errors';
 
-// Mock VS Code API
-vi.mock('vscode', () => ({
-    window: {
-        showErrorMessage: vi.fn(),
-        showInformationMessage: vi.fn(),
-        showWarningMessage: vi.fn(),
-        createStatusBarItem: vi.fn(() => ({
-            show: vi.fn(),
-            hide: vi.fn(),
-            dispose: vi.fn()
-        })),
-        createWebviewPanel: vi.fn(() => ({
-            webview: {
-                html: '',
-                onDidReceiveMessage: vi.fn()
-            },
-            onDidDispose: vi.fn(),
-            dispose: vi.fn(),
-            reveal: vi.fn()
-        }))
-    },
-    commands: {
-        executeCommand: vi.fn()
-    },
-    StatusBarAlignment: {
-        Left: 1,
-        Right: 2
-    },
-    ViewColumn: {
-        Beside: 2
-    },
-    Uri: {
-        joinPath: vi.fn()
-    }
-}));
+// 使用统一 VS Code 模拟，确保命令、状态栏、输出通道等依赖具备可观测行为
+vi.mock('vscode', async () => {
+    const actual = await import('../__mocks__/vscode');
+
+    return {
+        ...actual,
+        window: {
+            ...actual.window,
+            showErrorMessage: vi.fn(),
+            showInformationMessage: vi.fn(),
+            showWarningMessage: vi.fn(),
+            createStatusBarItem: vi.fn(() => ({
+                text: '',
+                tooltip: '',
+                show: vi.fn(),
+                hide: vi.fn(),
+                dispose: vi.fn()
+            })),
+            createWebviewPanel: vi.fn(() => ({
+                webview: {
+                    html: '',
+                    onDidReceiveMessage: vi.fn(),
+                    postMessage: vi.fn().mockResolvedValue(true)
+                },
+                onDidDispose: vi.fn(),
+                dispose: vi.fn(),
+                reveal: vi.fn()
+            }))
+        },
+        commands: {
+            ...actual.commands,
+            executeCommand: vi.fn().mockResolvedValue(undefined),
+            registerCommand: vi.fn().mockReturnValue({ dispose: vi.fn() })
+        },
+        Uri: {
+            ...actual.Uri,
+            joinPath: vi.fn().mockReturnValue({ fsPath: '/mock/path' })
+        }
+    };
+});
 
 describe('Node Creation Workflow Integration Tests', () => {
     let integrationManager: IntegrationManager;
@@ -61,7 +66,7 @@ describe('Node Creation Workflow Integration Tests', () => {
         // Create mock context
         mockContext = {
             subscriptions: [],
-            extensionUri: { fsPath: '/test/path' } as vscode.Uri,
+            extensionUri: { fsPath: process.cwd() } as vscode.Uri,
             globalState: {
                 get: vi.fn(),
                 update: vi.fn()
@@ -130,7 +135,7 @@ describe('Node Creation Workflow Integration Tests', () => {
 
             // Verify success message was shown
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Created node:')
+                expect.stringContaining('已标记为新节点:')
             );
         });
 
@@ -204,13 +209,13 @@ describe('Node Creation Workflow Integration Tests', () => {
             const filePath = '/test/file.js';
             const lineNumber = 1;
 
-            const updateSpy = vi.spyOn(previewManager, 'forceUpdate');
+            const setGraphSpy = vi.spyOn(previewManager, 'setGraph');
 
             // Act
             await integrationManager.createNodeWorkflow(selectedText, filePath, lineNumber);
 
             // Assert
-            expect(updateSpy).toHaveBeenCalled();
+            expect(setGraphSpy).toHaveBeenCalled();
         });
 
         it('should update status bar after node creation', async () => {
@@ -287,7 +292,9 @@ describe('Node Creation Workflow Integration Tests', () => {
 
         it('should handle no current node selected', async () => {
             // Arrange
-            nodeManager.setCurrentNode(''); // Clear current node
+            // Mock getCurrentNode to return null (no current node)
+            vi.spyOn(nodeManager, 'getCurrentNode').mockReturnValue(null);
+            
             const selectedText = 'const child = true;';
             const filePath = '/test/child.js';
             const lineNumber = 5;
@@ -460,17 +467,17 @@ describe('Node Creation Workflow Integration Tests', () => {
             const saveError = new Error('Storage failed');
             vi.spyOn(graphManager, 'saveGraph').mockRejectedValue(saveError);
 
-            // Act
-            const result = await integrationManager.createNodeWorkflow(
-                'function test() {}',
-                '/test/file.js',
-                1
-            );
+            // Act & Assert
+            await expect(
+                integrationManager.createNodeWorkflow(
+                    'function test() {}',
+                    '/test/file.js',
+                    1
+                )
+            ).rejects.toThrow('Storage failed');
 
-            // Assert - node should still be created even if save fails
-            expect(result).toBeDefined();
-            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Created node:')
+            expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to create node')
             );
         });
 
@@ -489,7 +496,7 @@ describe('Node Creation Workflow Integration Tests', () => {
             // Assert - node should still be created even if preview update fails
             expect(result).toBeDefined();
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                expect.stringContaining('Created node:')
+                expect.stringContaining('已标记为新节点:')
             );
         });
     });
@@ -517,3 +524,5 @@ describe('Node Creation Workflow Integration Tests', () => {
         });
     });
 });
+
+

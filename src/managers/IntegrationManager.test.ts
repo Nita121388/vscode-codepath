@@ -60,7 +60,10 @@ describe('IntegrationManager - createBroNodeWorkflow', () => {
         mockPreviewManager = vi.mocked(new PreviewManager({} as any, {} as any));
         mockWebviewManager = vi.mocked(new WebviewManager({} as any));
         mockStatusBarManager = vi.mocked(new StatusBarManager());
-        mockConfigManager = vi.mocked(new ConfigurationManager());
+        mockConfigManager = vi.mocked(new ConfigurationManager({
+            saveConfiguration: vi.fn(),
+            loadConfiguration: vi.fn()
+        } as any));
         mockContext = {
             subscriptions: [],
             extensionPath: '/test/extension'

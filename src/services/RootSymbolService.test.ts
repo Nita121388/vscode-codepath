@@ -14,6 +14,7 @@ const buildConfig = (preferences: Partial<RootSymbolPreferences> = {}): Configur
     defaultView: 'text',
     autoSave: true,
     autoLoadLastGraph: true,
+    autoOpenPreviewOnStartup: false,
     previewRefreshInterval: 1000,
     maxNodesPerGraph: 100,
     enableBackup: true,
@@ -21,21 +22,18 @@ const buildConfig = (preferences: Partial<RootSymbolPreferences> = {}): Configur
     rootSymbolPreferences: buildPreferences(preferences)
 });
 
-const createService = (options: {
-    preferences?: Partial<RootSymbolPreferences>;
-    date: Date;
-}) => new RootSymbolService({
-    configProvider: () => buildConfig(options.preferences ?? {}),
-    dateProvider: () => options.date
-});
+const createService = (options: { preferences?: Partial<RootSymbolPreferences>; date: Date }) =>
+    new RootSymbolService({
+        configProvider: () => buildConfig(options.preferences ?? {}),
+        dateProvider: () => options.date
+    });
 
-const utcDate = (year: number, month: number, day: number) =>
-    new Date(Date.UTC(year, month - 1, day));
+const utcDate = (year: number, month: number, day: number) => new Date(Date.UTC(year, month - 1, day));
 
 describe('RootSymbolService', () => {
-    it('春季显示🌿', () => {
+    it('默认情况下春季回退到常青树符号', () => {
         const service = createService({ date: utcDate(2025, 3, 10) });
-        expect(service.getRootSymbol()).toBe('🌿');
+        expect(service.getRootSymbol()).toBe('🌲');
     });
 
     it('圣诞节显示🎄', () => {
@@ -43,7 +41,7 @@ describe('RootSymbolService', () => {
         expect(service.getRootSymbol()).toBe('🎄');
     });
 
-    it('万圣节呈现 🎃 或 👻', () => {
+    it('万圣节呈现🎃或👻', () => {
         const symbol = createService({ date: utcDate(2025, 10, 31) }).getRootSymbol();
         expect(['🎃', '👻']).toContain(symbol);
     });
@@ -53,7 +51,7 @@ describe('RootSymbolService', () => {
         expect(['🧧', '🧨']).toContain(symbol);
     });
 
-    it('自定义覆盖模式优先', () => {
+    it('自定义覆盖模式优先返回固定符号', () => {
         const service = createService({
             date: utcDate(2025, 7, 1),
             preferences: {
@@ -65,7 +63,7 @@ describe('RootSymbolService', () => {
         expect(service.getRootSymbol()).toBe('😺');
     });
 
-    it('禁用节日与季节时使用自定义兜底', () => {
+    it('禁用节日与季节时使用自定义兜底符号', () => {
         const service = createService({
             date: utcDate(2025, 5, 20),
             preferences: {
@@ -79,7 +77,7 @@ describe('RootSymbolService', () => {
         expect(service.getRootSymbol()).toBe('🍀');
     });
 
-    it('无规则匹配时回退到默认🌲', () => {
+    it('无规则匹配时回退到默认符号', () => {
         const service = createService({
             date: utcDate(2025, 5, 20),
             preferences: {

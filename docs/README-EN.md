@@ -12,7 +12,7 @@ Code Path Marker is a VS Code extension that lets you capture execution paths wh
 
 | Area | Highlights |
 | --- | --- |
-| Path Marking | Unified "Code Path" context menu, root/parent/child/sibling nodes, file and folder marking, node copy/paste/cut/reorder |
+| Path Marking | Unified "Code Path" context menu, root/parent/child/sibling nodes, file and folder marking, node copy/paste/cut/reorder, copy code context |
 | Smart Tracking | Multi-strategy location matching (exact/near/full-text/fuzzy), SHA-256 code fingerprinting, confidence scoring, automatic node updates |
 | Visualization | Text tree preview, real-time refresh, split view layouts, customizable preview menu, status bar hints |
 | Graph Management | Multiple Code Paths, auto-save with scheduled backups, auto-load last graph, quick preview from graph files |

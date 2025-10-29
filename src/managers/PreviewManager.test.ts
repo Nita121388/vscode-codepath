@@ -147,11 +147,11 @@ describe('PreviewManager', () => {
             previewManager.setGraph(null);
             
             const textContent = await previewManager.renderPreview();
-            expect(textContent).toContain('No graph selected');
+            expect(textContent).toContain('No CodePath selected.');
             
             previewManager.setFormat('mermaid');
             const mermaidContent = await previewManager.renderPreview();
-            expect(mermaidContent).toContain('No Graph Selected');
+            expect(mermaidContent).toContain('No CodePath Selected');
         });
 
         it('should handle mermaid validation errors', async () => {
@@ -316,7 +316,7 @@ describe('PreviewManager', () => {
         it('should throw error for node path without graph', async () => {
             previewManager.setGraph(null);
             
-            await expect(previewManager.renderNodePath('node1')).rejects.toThrow('No graph available');
+            await expect(previewManager.renderNodePath('node1')).rejects.toThrow('No graph available for path rendering');
         });
 
         it('should render summary', () => {
@@ -362,7 +362,7 @@ describe('PreviewManager', () => {
             
             const exported = await previewManager.exportPreview();
             
-            expect(exported.content).toContain('No graph selected');
+            expect(exported.content).toContain('No CodePath selected.');
             expect(exported.filename).toMatch(/untitled-preview-.*\.txt/);
         });
     });

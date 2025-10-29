@@ -3,6 +3,7 @@ export default {
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    setupFiles: ['./src/__mocks__/testSetup.ts']
   },
   resolve: {
     alias: {

@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { Configuration, RootSymbolPreferences } from '../types';
 import { IConfigurationManager } from '../interfaces/IConfigurationManager';
 import { IStorageManager } from '../interfaces/IStorageManager';
@@ -46,20 +47,67 @@ export class ConfigurationManager implements IConfigurationManager {
     }
 
     /**
+     * 从VS Code工作区配置中读取设置
+     */
+    private loadVSCodeConfiguration(): Partial<Configuration> {
+        const config = vscode.workspace.getConfiguration('codepath');
+
+        // 只读取已定义的配置项，避免undefined值覆盖默认值
+        const vscodeConfig: Partial<Configuration> = {};
+
+        const autoSave = config.get<boolean>('autoSave');
+        if (autoSave !== undefined) {
+            vscodeConfig.autoSave = autoSave;
+        }
+
+        const autoLoadLastGraph = config.get<boolean>('autoLoadLastGraph');
+        if (autoLoadLastGraph !== undefined) {
+            vscodeConfig.autoLoadLastGraph = autoLoadLastGraph;
+        }
+
+        const autoOpenPreviewOnStartup = config.get<boolean>('autoOpenPreviewOnStartup');
+        if (autoOpenPreviewOnStartup !== undefined) {
+            vscodeConfig.autoOpenPreviewOnStartup = autoOpenPreviewOnStartup;
+        }
+
+        const previewRefreshInterval = config.get<number>('previewRefreshInterval');
+        if (previewRefreshInterval !== undefined) {
+            vscodeConfig.previewRefreshInterval = previewRefreshInterval;
+        }
+
+        const maxNodesPerGraph = config.get<number>('maxNodesPerGraph');
+        if (maxNodesPerGraph !== undefined) {
+            vscodeConfig.maxNodesPerGraph = maxNodesPerGraph;
+        }
+
+        return vscodeConfig;
+    }
+
+    /**
      * Loads configuration from storage
      */
     public async loadConfiguration(): Promise<Configuration> {
         try {
-            const config = await this.storageManager.loadConfiguration();
-            
-            // Validate the loaded configuration
-            if (this.validateConfiguration(config)) {
-                this.currentConfig = this.mergeWithDefaults(config as Partial<Configuration>);
+            // 1. 读取VS Code配置（优先级最高）
+            const vscodeConfig = this.loadVSCodeConfiguration();
+
+            // 2. 读取本地存储配置
+            const localConfig = await this.storageManager.loadConfiguration();
+
+            // 3. 合并配置：VS Code配置 > 本地配置 > 默认配置
+            const mergedConfig = {
+                ...localConfig,
+                ...vscodeConfig  // VS Code配置覆盖本地配置
+            };
+
+            // 4. 验证配置
+            if (this.validateConfiguration(mergedConfig)) {
+                this.currentConfig = this.mergeWithDefaults(mergedConfig as Partial<Configuration>);
             } else {
-                console.warn('Invalid configuration loaded, using defaults');
+                console.warn('Invalid merged configuration, using defaults');
                 this.currentConfig = this.getDefaultConfiguration();
             }
-            
+
             return this.currentConfig;
         } catch (error) {
             console.warn('Failed to load configuration, using defaults:', error);
@@ -648,5 +696,22 @@ export class ConfigurationManager implements IConfigurationManager {
      */
     public async initialize(): Promise<void> {
         await this.loadConfiguration();
+    }
+
+    /**
+     * 设置VS Code配置变化监听器
+     */
+    public setupConfigurationWatcher(): vscode.Disposable {
+        return vscode.workspace.onDidChangeConfiguration(async (e) => {
+            if (e.affectsConfiguration('codepath')) {
+                console.log('CodePath configuration changed, reloading...');
+                try {
+                    await this.loadConfiguration();
+                    console.log('Configuration reloaded successfully');
+                } catch (error) {
+                    console.error('Failed to reload configuration:', error);
+                }
+            }
+        });
     }
 }

@@ -78,12 +78,17 @@ describe('GraphManager', () => {
             expect(currentGraph!.id).toBe(result.id);
         });
 
-        it('should throw error when storage fails', async () => {
+        it('should handle storage failures gracefully', async () => {
             // Arrange
             (mockStorageManager.saveGraphToFile as Mock).mockRejectedValue(new Error('Storage error'));
 
-            // Act & Assert
-            await expect(graphManager.createGraph()).rejects.toThrow('Failed to create graph');
+            // Act
+            const result = await graphManager.createGraph();
+
+            // Assert - Should succeed with in-memory graph despite storage failure
+            expect(result).toBeDefined();
+            expect(result.id).toBeDefined();
+            expect(mockStorageManager.saveGraphToFile).toHaveBeenCalled();
         });
     });
 
@@ -170,13 +175,16 @@ describe('GraphManager', () => {
             await expect(graphManager.saveGraph({} as any)).rejects.toThrow('Invalid graph data');
         });
 
-        it('should throw error when storage fails', async () => {
+        it('should handle storage failures gracefully', async () => {
             // Arrange
             const graph = new GraphModel('test-id', 'Test Graph');
             (mockStorageManager.saveGraphToFile as Mock).mockRejectedValue(new Error('Storage error'));
 
-            // Act & Assert
-            await expect(graphManager.saveGraph(graph.toJSON())).rejects.toThrow('Failed to save graph test-id');
+            // Act - Should complete without throwing
+            await graphManager.saveGraph(graph.toJSON());
+
+            // Assert - Should attempt to save despite failure
+            expect(mockStorageManager.saveGraphToFile).toHaveBeenCalled();
         });
     });
 

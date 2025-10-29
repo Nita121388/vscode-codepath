@@ -54,6 +54,7 @@ By reconstructing the execution path in a visual node graph, it assists with deb
 - **Node Editing** with real-time validation and preview update
 - **File Explorer Integration** - Mark files/folders as nodes, preview and share graphs
 - **Node Operations** - Copy, paste, cut, move up/down with custom preview menu
+- **Copy Code Context** - Copy relative file paths, line ranges, and selected snippets for quick sharing
 - **Cross-platform** compatibility
 
 ### 🎯 Use Cases
@@ -108,6 +109,7 @@ Code Path Marker 是一个 VS Code 扩展，帮助开发者通过交互式节点
 - **节点编辑** - 实时验证和预览更新
 - **文件浏览器集成** - 标记文件/文件夹为节点，直接预览和分享图表文件
 - **节点操作** - 复制、粘贴、剪切、上移、下移，自定义预览菜单
+- **代码上下文复制** - 一键复制相对路径、行号范围与代码片段，便于沟通协作
 - **跨平台** - 全平台兼容
 
 ### 🎯 使用场景

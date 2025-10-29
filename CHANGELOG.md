@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-10-21
+
+### Added
+- `Code Path → Copy Code Context` menu command to capture the relative path, line range, and selected code into the clipboard, supporting multiple selections for quick sharing.
+
+### Changed
+- `Copy Code Context` now appears only when the editor has a non-empty selection to avoid accidental copies.
+
 ## [0.2.1] - 2025-10-19
 
 ### Added

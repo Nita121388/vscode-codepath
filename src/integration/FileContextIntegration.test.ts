@@ -1,71 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as vscode from 'vscode';
 import { CommandManager } from '../managers/CommandManager';
-import { GraphManager } from '../managers/GraphManager';
-import { NodeManager } from '../managers/NodeManager';
-import { IntegrationManager } from '../managers/IntegrationManager';
 
 // Mock VS Code API
-vi.mock('vscode', () => ({
-    window: {
-        activeTextEditor: null,
-        showErrorMessage: vi.fn(),
-        showInformationMessage: vi.fn(),
-        showWarningMessage: vi.fn(),
-        showInputBox: vi.fn(),
-        showQuickPick: vi.fn(),
-        showSaveDialog: vi.fn(),
-        showOpenDialog: vi.fn(),
-        createOutputChannel: vi.fn(() => ({
-            clear: vi.fn(),
-            appendLine: vi.fn(),
-            show: vi.fn()
-        }))
-    },
-    workspace: {
-        fs: {
-            stat: vi.fn(),
-            readFile: vi.fn(),
-            writeFile: vi.fn()
-        },
-        workspaceFolders: [],
-        openTextDocument: vi.fn(),
-        onDidSaveTextDocument: vi.fn()
-    },
-    commands: {
-        registerCommand: vi.fn(),
-        executeCommand: vi.fn()
-    },
-    env: {
-        clipboard: {
-            writeText: vi.fn()
-        }
-    },
-    Uri: {
-        file: vi.fn((path: string) => ({ fsPath: path, scheme: 'file' }))
-    },
-    FileType: {
-        Directory: 2,
-        File: 1
-    },
-    FileSystemError: class extends Error {
-        code: string;
-        constructor(message: string, code: string) {
-            super(message);
-            this.code = code;
-        }
-    },
-    ViewColumn: {
-        One: 1,
-        Two: 2
-    },
-    Position: vi.fn(),
-    Selection: vi.fn(),
-    Range: vi.fn(),
-    TextEditorRevealType: {
-        InCenter: 1
-    }
-}));
+vi.mock('vscode', async () => {
+    const actual = await vi.importActual('../__mocks__/vscode');
+    return actual;
+});
 
 describe('File/Folder Context Integration Tests', () => {
     let commandManager: CommandManager;
@@ -127,8 +68,13 @@ describe('File/Folder Context Integration Tests', () => {
         it('should create node from TypeScript file', async () => {
             // Arrange
             const testUri = vscode.Uri.file('/workspace/src/components/Button.tsx');
-            const mockStats = { type: vscode.FileType.File };
-            
+            const mockStats = {
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 1024
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
             mockIntegrationManager.createNodeWorkflow.mockResolvedValue({
                 id: 'button-node',
@@ -154,8 +100,13 @@ describe('File/Folder Context Integration Tests', () => {
         it('should create child node from folder', async () => {
             // Arrange
             const testUri = vscode.Uri.file('/workspace/src/utils');
-            const mockStats = { type: vscode.FileType.Directory };
-            
+            const mockStats = {
+                type: vscode.FileType.Directory,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 0
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
             mockIntegrationManager.createChildNodeWorkflow.mockResolvedValue({
                 id: 'utils-node',
@@ -181,8 +132,13 @@ describe('File/Folder Context Integration Tests', () => {
         it('should handle complex file paths correctly', async () => {
             // Arrange
             const testUri = vscode.Uri.file('/workspace/src/features/user-management/components/UserProfile.component.ts');
-            const mockStats = { type: vscode.FileType.File };
-            
+            const mockStats = {
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 2048
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
             mockIntegrationManager.createParentNodeWorkflow.mockResolvedValue({
                 id: 'user-profile-node',
@@ -217,8 +173,13 @@ describe('File/Folder Context Integration Tests', () => {
             for (const testCase of testCases) {
                 // Arrange
                 const testUri = vscode.Uri.file(testCase.path);
-                const mockStats = { type: vscode.FileType.File };
-                
+                const mockStats = {
+                    type: vscode.FileType.File,
+                    ctime: Date.now(),
+                    mtime: Date.now(),
+                    size: 512
+                };
+
                 vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
                 mockIntegrationManager.createBroNodeWorkflow.mockResolvedValue({
                     id: `${testCase.name}-node`,
@@ -244,8 +205,13 @@ describe('File/Folder Context Integration Tests', () => {
         it('should satisfy requirement 9.1: Show all node creation options for files', async () => {
             // This test verifies that all "Mark as" commands work with file URIs
             const testUri = vscode.Uri.file('/workspace/test.js');
-            const mockStats = { type: vscode.FileType.File };
-            
+            const mockStats = {
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 256
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
 
             const commands = [
@@ -276,8 +242,13 @@ describe('File/Folder Context Integration Tests', () => {
         it('should satisfy requirement 9.2: Show all node creation options for folders', async () => {
             // This test verifies that all "Mark as" commands work with folder URIs
             const testUri = vscode.Uri.file('/workspace/src');
-            const mockStats = { type: vscode.FileType.Directory };
-            
+            const mockStats = {
+                type: vscode.FileType.Directory,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 0
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
 
             const commands = [
@@ -314,8 +285,13 @@ describe('File/Folder Context Integration Tests', () => {
 
             for (const testCase of testCases) {
                 const testUri = vscode.Uri.file(testCase.path);
-                const mockStats = { type: vscode.FileType.File };
-                
+                const mockStats = {
+                    type: vscode.FileType.File,
+                    ctime: Date.now(),
+                    mtime: Date.now(),
+                    size: 1024
+                };
+
                 vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
                 mockIntegrationManager.createNodeWorkflow.mockResolvedValue({
                     id: 'test-node',
@@ -337,8 +313,13 @@ describe('File/Folder Context Integration Tests', () => {
         it('should satisfy requirement 9.4: Use file/folder path as node path', async () => {
             const testPath = '/workspace/src/components/Button.tsx';
             const testUri = vscode.Uri.file(testPath);
-            const mockStats = { type: vscode.FileType.File };
-            
+            const mockStats = {
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 1536
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
             mockIntegrationManager.createNodeWorkflow.mockResolvedValue({
                 id: 'button-node',
@@ -358,8 +339,13 @@ describe('File/Folder Context Integration Tests', () => {
 
         it('should satisfy requirement 9.5: Set line number to 1 for folders', async () => {
             const testUri = vscode.Uri.file('/workspace/src/components');
-            const mockStats = { type: vscode.FileType.Directory };
-            
+            const mockStats = {
+                type: vscode.FileType.Directory,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 0
+            };
+
             vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
             mockIntegrationManager.createNodeWorkflow.mockResolvedValue({
                 id: 'components-node',

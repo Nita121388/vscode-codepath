@@ -10,20 +10,15 @@ import { ClipboardManager } from './ClipboardManager';
 import { NodeOrderManager } from './NodeOrderManager';
 import { Node, Graph } from '../types';
 import { CodePathError } from '../types/errors';
+import * as vscode from 'vscode';
 
 // Mock VS Code
 vi.mock('vscode', () => import('../__mocks__/vscode'));
 
-// Mock fs module for file context tests
-vi.mock('fs', () => ({
-    promises: {
-        stat: vi.fn(),
-    },
-}));
-
 // Mock path module
+const mockPathBasename = vi.fn();
 vi.mock('path', () => ({
-    basename: vi.fn((path: string) => path.split('/').pop() || path.split('\\').pop() || path),
+    basename: mockPathBasename
 }));
 
 describe('IntegrationManager - New Workflows', () => {
@@ -368,14 +363,12 @@ describe('IntegrationManager - New Workflows', () => {
     describe('File Context Workflows', () => {
         describe('createNodeFromFileContextWorkflow', () => {
             const mockUri = { fsPath: '/test/example.ts' } as any;
-            const mockStats = { isDirectory: () => false };
+            const mockStats = { type: 1, size: 100, ctime: Date.now(), mtime: Date.now() }; // FileType.File
 
             beforeEach(() => {
-                const fs = require('fs');
-                fs.promises.stat.mockResolvedValue(mockStats);
-                
-                const path = require('path');
-                path.basename.mockReturnValue('example.ts');
+                // Setup default mocks for this test suite
+                vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockStats);
+                mockPathBasename.mockReturnValue('example.ts');
             });
 
             it('should create new node from file context', async () => {
@@ -432,21 +425,19 @@ describe('IntegrationManager - New Workflows', () => {
 
             it('should handle directory context', async () => {
                 // Arrange
-                const mockDirStats = { isDirectory: () => true };
-                const fs = require('fs');
-                fs.promises.stat.mockResolvedValue(mockDirStats);
-                
-                const path = require('path');
-                path.basename.mockReturnValue('src');
+                const mockDirUri = { fsPath: '/test/src' } as any;
+                const mockDirStats = { type: 2, size: 0, ctime: Date.now(), mtime: Date.now() }; // FileType.Directory
+                vi.mocked(vscode.workspace.fs.stat).mockResolvedValue(mockDirStats);
+                mockPathBasename.mockReturnValue('src');
 
                 const createdNode = { ...testNode, name: 'src' };
                 vi.spyOn(integrationManager, 'createNodeWorkflow').mockResolvedValue(createdNode);
 
                 // Act
-                const result = await integrationManager.createNodeFromFileContextWorkflow(mockUri, 'new');
+                const result = await integrationManager.createNodeFromFileContextWorkflow(mockDirUri, 'new');
 
                 // Assert
-                expect(integrationManager.createNodeWorkflow).toHaveBeenCalledWith('src', '/test/example.ts', 1);
+                expect(integrationManager.createNodeWorkflow).toHaveBeenCalledWith('src', '/test/src', 1);
                 expect(result).toBe(createdNode);
             });
 
@@ -468,12 +459,11 @@ describe('IntegrationManager - New Workflows', () => {
 
             it('should handle file system errors', async () => {
                 // Arrange
-                const fs = require('fs');
-                fs.promises.stat.mockRejectedValue(new Error('File not found'));
+                vi.mocked(vscode.workspace.fs.stat).mockRejectedValue(new Error('File not found'));
 
                 // Act & Assert
                 await expect(
-                    integrationManager.createNodeFromFileContextWorkflow(mockUri)
+                    integrationManager.createNodeFromFileContextWorkflow(mockUri, 'new')
                 ).rejects.toThrow('File not found');
                 expect(mockShowErrorMessage).toHaveBeenCalledWith('从文件创建节点失败: File not found');
             });

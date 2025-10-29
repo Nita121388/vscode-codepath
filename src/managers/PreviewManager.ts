@@ -8,6 +8,8 @@ import { CodePathError } from '../types/errors';
 /**
  * Preview manager for handling graph visualization and real-time updates
  * Manages rendering format switching and preview panel updates
+ *
+ * 负责图结构在文本与 Mermaid 两种格式间的渲染调度，统一管理预览内容的刷新节奏与错误上报。
  */
 export class PreviewManager {
     private textRenderer: TextRenderer;
@@ -40,6 +42,8 @@ export class PreviewManager {
 
     /**
      * Sets the current graph and triggers preview update
+     *
+     * 当图数据发生变化时安排一次预览刷新，并尽量避免重复渲染未变更的图。
      */
     public setGraph(graph: Graph | null): void {
         // Check if graph actually changed to avoid unnecessary updates
@@ -48,6 +52,7 @@ export class PreviewManager {
             if (this.currentGraph.id === graph.id &&
                 this.currentGraph.updatedAt.getTime() === graph.updatedAt.getTime() &&
                 this.currentGraph.getNodeCount() === graph.getNodeCount()) {
+                // ID、更新时间和节点数量都未变化时视为同一版本，跳过渲染以节省资源
                 // Graph hasn't changed, skip update
                 return;
             }
@@ -95,6 +100,8 @@ export class PreviewManager {
 
     /**
      * Renders the current graph with the current format
+     *
+     * 根据当前格式选择对应渲染器，将最新的图结构转化为文本或 Mermaid 并推送到订阅者。
      */
     public async renderPreview(): Promise<string> {
         if (!this.currentGraph) {
@@ -125,6 +132,7 @@ export class PreviewManager {
             console.log('[PreviewManager] Content changed:', contentChanged, 'Format changed:', formatChanged);
             
             if (contentChanged || formatChanged) {
+                // 仅当渲染结果或展示格式确实发生变化时才广播通知，降低前端无效刷新概率
                 this.lastRenderedContent = content;
                 this.lastRenderedFormat = this.currentFormat;
                 console.log('[PreviewManager] Notifying callbacks');
@@ -151,6 +159,8 @@ export class PreviewManager {
 
     /**
      * Renders Mermaid preview with error handling
+     *
+     * 调用 Mermaid 渲染器，并在语法校验失败时返回可读性更好的错误信息。
      */
     private async renderMermaidPreview(graph: Graph): Promise<string> {
         try {
@@ -206,6 +216,8 @@ flowchart TD
 
     /**
      * Handles rendering errors with fallback to text format
+     *
+     * 捕获渲染异常，优先退回文本渲染并将错误信息透出给前端供调试。
      */
     private async handleRenderError(error: Error): Promise<string> {
         // Convert to CodePathError if not already
@@ -237,6 +249,8 @@ flowchart TD
 
     /**
      * Schedules a debounced update
+     *
+     * 通过延迟调用 renderPreview，实现对频繁状态变更的抖动合并。
      */
     private scheduleUpdate(): void {
         if (this.updateTimeout) {
@@ -244,6 +258,7 @@ flowchart TD
         }
 
         this.updateTimeout = setTimeout(() => {
+            // 延迟期结束后再次确认渲染，避免在图数据连续变更时创建多余 Promise
             this.renderPreview().catch(error => {
                 console.error('Preview update failed:', error);
             });

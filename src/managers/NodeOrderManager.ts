@@ -21,17 +21,17 @@ export class NodeOrderManager {
     public async moveNodeUp(nodeId: string): Promise<boolean> {
         try {
             if (!nodeId || typeof nodeId !== 'string') {
-                throw CodePathError.userError('节点ID必须是非空字符串', '请提供有效的节点ID');
+                throw CodePathError.userError('Node ID must be a non-empty string', 'Please provide a valid node ID');
             }
 
             const graph = this.graphManager.getCurrentGraph();
             if (!graph) {
-                throw CodePathError.userError('未找到活动图谱', '请先创建一张图谱');
+                throw CodePathError.userError('No active graph found', 'Please create a graph first');
             }
 
             const node = graph.nodes.get(nodeId);
             if (!node) {
-                throw CodePathError.userError(`未找到 ID 为 ${nodeId} 的节点`, '请选择一个有效的节点');
+                throw CodePathError.userError(`Node with ID ${nodeId} not found`, 'Please select a valid node');
             }
 
             const siblings = this.getSiblings(node, graph);
@@ -47,7 +47,7 @@ export class NodeOrderManager {
             await this.swapSiblings(siblings, currentIndex, currentIndex - 1, graph);
             return true;
         } catch (error) {
-            throw CodePathError.orderError(`移动节点失败: ${error}`);
+            throw CodePathError.orderError(`Failed to move node up: ${error}`);
         }
     }
 
@@ -60,17 +60,17 @@ export class NodeOrderManager {
     public async moveNodeDown(nodeId: string): Promise<boolean> {
         try {
             if (!nodeId || typeof nodeId !== 'string') {
-                throw CodePathError.userError('节点ID必须是非空字符串', '请提供有效的节点ID');
+                throw CodePathError.userError('Node ID must be a non-empty string', 'Please provide a valid node ID');
             }
 
             const graph = this.graphManager.getCurrentGraph();
             if (!graph) {
-                throw CodePathError.userError('未找到活动图谱', '请先创建一张图谱');
+                throw CodePathError.userError('No active graph found', 'Please create a graph first');
             }
 
             const node = graph.nodes.get(nodeId);
             if (!node) {
-                throw CodePathError.userError(`未找到 ID 为 ${nodeId} 的节点`, '请选择一个有效的节点');
+                throw CodePathError.userError(`Node with ID ${nodeId} not found`, 'Please select a valid node');
             }
 
             const siblings = this.getSiblings(node, graph);
@@ -86,7 +86,7 @@ export class NodeOrderManager {
             await this.swapSiblings(siblings, currentIndex, currentIndex + 1, graph);
             return true;
         } catch (error) {
-            throw CodePathError.orderError(`移动节点失败: ${error}`);
+            throw CodePathError.orderError(`Failed to move node down: ${error}`);
         }
     }
 
@@ -111,6 +111,10 @@ export class NodeOrderManager {
                     .filter((n): n is Node => n !== undefined);
             } else {
                 // Node is a root node - get all root nodes
+                if (!graph.rootNodes || !Array.isArray(graph.rootNodes)) {
+                    // Handle corrupted rootNodes data
+                    return [];
+                }
                 return graph.rootNodes
                     .map(id => graph.nodes.get(id))
                     .filter((n): n is Node => n !== undefined);

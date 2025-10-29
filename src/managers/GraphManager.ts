@@ -27,8 +27,12 @@ export class GraphManager implements IGraphManager {
             
             const graph = new GraphModel(graphId, graphName);
             
-            // Save the new graph
-            await this.storageManager.saveGraphToFile(graph);
+            // Save the new graph，若持久化失败则记录警告但继续使用内存状态
+            try {
+                await this.storageManager.saveGraphToFile(graph);
+            } catch (error) {
+                console.warn('[GraphManager] 保存新图到存储失败，将继续使用内存图形：', error);
+            }
             
             // Set as current graph
             this.currentGraph = graph;
@@ -140,10 +144,14 @@ export class GraphManager implements IGraphManager {
             // Update the updatedAt timestamp
             graphModel.updatedAt = new Date();
 
-            await this.storageManager.saveGraphToFile(graphModel);
+            try {
+                await this.storageManager.saveGraphToFile(graphModel);
+            } catch (error) {
+                console.warn(`[GraphManager] 保存图 ${graphModel.id} 到存储失败，将继续使用内存状态:`, error);
+            }
             
-            // Update current graph if it's the same one
-            if (this.currentGraph && graph && this.currentGraph.id === graph.id) {
+            // Update current graph if it's the same one or当前暂无活跃图
+            if (!this.currentGraph || (graph && this.currentGraph.id === graph.id)) {
                 this.currentGraph = graphModel;
             }
         } catch (error) {

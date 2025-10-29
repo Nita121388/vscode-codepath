@@ -27,7 +27,8 @@ vi.mock('vscode', () => ({
         createOutputChannel: vi.fn(() => ({
             clear: vi.fn(),
             appendLine: vi.fn(),
-            show: vi.fn()
+            show: vi.fn(),
+            dispose: vi.fn()
         })),
         createStatusBarItem: vi.fn(() => ({
             text: '',
@@ -68,14 +69,19 @@ vi.mock('vscode', () => ({
             writeText: vi.fn()
         }
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     Uri: {
         file: vi.fn((path: string) => ({ fsPath: path, scheme: 'file' })),
         joinPath: vi.fn()
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     FileType: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         Directory: 2,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         File: 1
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     FileSystemError: class extends Error {
         code: string;
         constructor(message: string, code: string) {
@@ -83,21 +89,34 @@ vi.mock('vscode', () => ({
             this.code = code;
         }
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     ViewColumn: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         One: 1,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         Two: 2,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         Beside: 2
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     Position: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     Selection: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     Range: vi.fn(),
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     TextEditorRevealType: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         InCenter: 1
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     StatusBarAlignment: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         Left: 1,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         Right: 2
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     MarkdownString: class {
         public value: string;
         constructor(value?: string) {
@@ -850,7 +869,7 @@ describe('Menu Restructure End-to-End Integration Tests', () => {
                     expect.objectContaining({ label: '📋 复制' }),
                 ]),
                 expect.objectContaining({
-                    placeHolder: '选择操作 (Node: Test Node)',
+                    placeHolder: '请选择操作 (节点: Test Node)',
                 })
             );
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNode');

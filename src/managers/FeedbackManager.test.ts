@@ -25,6 +25,7 @@ vi.mock('vscode', () => ({
             writeFile: vi.fn()
         }
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     Uri: {
         file: vi.fn((path: string) => ({ fsPath: path }))
     },
@@ -107,7 +108,7 @@ describe('FeedbackManager', () => {
             
             expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
                 '请检查输入',
-                '重试',
+                '选择文本',
                 '查看详情'
             );
             expect(mockOutputChannel.appendLine).toHaveBeenCalled();
