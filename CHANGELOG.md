@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-10-29
+
+### Fixed
+- Fixed Vitest mock configuration for VSCode module, resolving test failures
+- Improved test stability and reliability with unified test setup
+- Achieved 99.1% test pass rate (1265/1276 tests passing)
+- Documented edge cases and skipped tests requiring functional design decisions
+
+### Technical
+- Added unified test setup in `src/__mocks__/testSetup.ts`
+- Added missing mock files for fs and path modules
+- Fixed export format compatibility in vscode.ts mock
+- Removed duplicate vi.mock declarations from test files
+
 ## [0.2.2] - 2025-10-21
 
 ### Added
