@@ -15,9 +15,15 @@ TEST_REPORT.md
 PACKAGING.md
 TODO.md
 CHANGELOG_ZH.md
+CLAUDE.md
+AI_FEATURES_DISABLED.md
+README copy.md
 manual-test-script.js
 test-bro-node.js
 verify-implementation.js
+publish.sh
+temp.txt
+ok.json
 .codepath/**
 .kiro/**
 .vs/**
