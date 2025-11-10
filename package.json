@@ -100,6 +100,11 @@
         "category": "Code Path Marker"
       },
       {
+        "command": "codepath.copyNodeFilePath",
+        "title": "复制节点文件路径",
+        "category": "Code Path Marker"
+      },
+      {
         "command": "codepath.moveNodeUp",
         "title": "Move Up",
         "category": "Code Path Marker"
@@ -234,7 +239,7 @@
         },
         {
           "command": "codepath.copyNode",
-          "when": "codepath.hasCurrentNode",
+          "when": "false",
           "group": "2_edit@1"
         },
         {
@@ -244,22 +249,27 @@
         },
         {
           "command": "codepath.cutNode",
-          "when": "codepath.hasCurrentNode",
+          "when": "false",
           "group": "2_edit@3"
         },
-        {
-          "command": "codepath.copyCodeContext",
-          "when": "editorHasSelection",
-          "group": "2_edit@4"
-        },
+      {
+        "command": "codepath.copyCodeContext",
+        "when": "editorHasSelection",
+        "group": "2_edit@4"
+      },
+      {
+        "command": "codepath.copyNodeFilePath",
+        "when": "false",
+        "group": "2_edit@5"
+      },
         {
           "command": "codepath.moveNodeUp",
-          "when": "codepath.hasCurrentNode",
+          "when": "false",
           "group": "3_order@1"
         },
         {
           "command": "codepath.moveNodeDown",
-          "when": "codepath.hasCurrentNode",
+          "when": "false",
           "group": "3_order@2"
         },
         {
@@ -288,6 +298,11 @@
         "key": "ctrl+alt+c"
       },
       {
+        "command": "codepath.createChildNode",
+        "key": "ctrl+alt+j",
+        "when": "editorHasSelection"
+      },
+      {
         "command": "codepath.createParentNode",
         "key": "ctrl+alt+p"
       },
@@ -310,6 +325,16 @@
       {
         "command": "codepath.createBroNode",
         "key": "ctrl+alt+b"
+      },
+      {
+        "command": "codepath.copyNodeFilePath",
+        "key": "ctrl+alt+shift+f",
+        "when": "codepath.hasCurrentNode"
+      },
+      {
+        "command": "codepath.copyCodeContext",
+        "key": "ctrl+alt+x",
+        "when": "editorHasSelection"
       }
     ],
     "configuration": {
@@ -339,6 +364,18 @@
           "type": "number",
           "default": 100,
           "description": "Maximum nodes per graph"
+        },
+        "codepath.aiEndpointAutoStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the AI endpoint when the extension activates"
+        },
+        "codepath.aiEndpointPort": {
+          "type": "number",
+          "default": 4783,
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "Local port used by the AI endpoint (0 selects a random port)"
         }
       }
     }

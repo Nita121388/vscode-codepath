@@ -830,6 +830,11 @@ export class WebviewManager implements IWebviewManager {
                         detail: 'Move the selected node and all its children to clipboard'
                     },
                     {
+                        label: '📁 复制文件路径',
+                        description: 'Copy node file path',
+                        detail: actualNode?.filePath || '该节点没有关联文件路径'
+                    },
+                    {
                         label: '⬆️ 上移',
                         description: 'Move node up',
                         detail: 'Move node up in the sibling order'
@@ -909,6 +914,15 @@ export class WebviewManager implements IWebviewManager {
                         await this.setCurrentNodeForOperation(nodeId);
                         await vscode.commands.executeCommand('codepath.cutNode');
                     }
+                    break;
+                case '复制文件路径':
+                    if (nodeId) {
+                        await this.setCurrentNodeForOperation(nodeId);
+                    } else {
+                        vscode.window.showWarningMessage('未找到可用节点，无法复制文件路径');
+                        return;
+                    }
+                    await vscode.commands.executeCommand('codepath.copyNodeFilePath');
                     break;
                 case '上移':
                     if (nodeId) {

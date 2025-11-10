@@ -85,6 +85,7 @@ describe('Extension Lifecycle', () => {
             }),
             saveConfiguration: vi.fn().mockResolvedValue(undefined) // 保存配置
         };
+        mockStorageManager.workspaceDirectoryExists = vi.fn().mockResolvedValue(true);
 
         // 设置配置管理器的模拟行为
         mockConfigManager = {
@@ -163,14 +164,27 @@ describe('Extension Lifecycle', () => {
             );
         });
 
-        it('应该设置工作区目录', async () => {
+        it('当工作区目录已存在时应补齐结构', async () => {
             // 确保此测试有可用的工作区
             (vscode.workspace as any).workspaceFolders = [{ uri: { fsPath: '/test/workspace' } }];
 
             await activate(mockContext);
 
             // 验证确保工作区目录被调用
+            expect(mockStorageManager.workspaceDirectoryExists).toHaveBeenCalled();
             expect(mockStorageManager.ensureWorkspaceDirectory).toHaveBeenCalled();
+        });
+
+        it('当尚未创建工作区目录时应延迟初始化', async () => {
+            // 确保此测试有可用的工作区
+            (vscode.workspace as any).workspaceFolders = [{ uri: { fsPath: '/test/workspace' } }];
+
+            mockStorageManager.workspaceDirectoryExists.mockResolvedValue(false);
+
+            await activate(mockContext);
+
+            expect(mockStorageManager.workspaceDirectoryExists).toHaveBeenCalled();
+            expect(mockStorageManager.ensureWorkspaceDirectory).not.toHaveBeenCalled();
         });
 
         it('应该加载配置', async () => {

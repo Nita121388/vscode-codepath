@@ -29,6 +29,36 @@ export class StorageManager implements IStorageManager {
     }
 
     /**
+     * 获取当前工作区根目录
+     */
+    public getWorkspaceRootPath(): string {
+        return this.workspaceRoot;
+    }
+
+    /**
+     * 检查指定路径在磁盘上是否存在
+     */
+    private async pathExists(targetPath: string): Promise<boolean> {
+        try {
+            await fs.access(targetPath);
+            return true;
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError && nodeError.code && nodeError.code !== 'ENOENT') {
+                throw nodeError;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * 判断工作区的 .codepath 目录是否已经存在
+     */
+    public async workspaceDirectoryExists(): Promise<boolean> {
+        return this.pathExists(this.codepathDir);
+    }
+
+    /**
      * Gets the workspace root directory from VS Code
      */
     private getWorkspaceRoot(): string {
@@ -96,7 +126,9 @@ export class StorageManager implements IStorageManager {
             maxNodesPerGraph: 100,
             enableBackup: true,
             backupInterval: 300000,
-            rootSymbolPreferences: this.getDefaultRootSymbolPreferences()
+            rootSymbolPreferences: this.getDefaultRootSymbolPreferences(),
+            aiEndpointAutoStart: false,
+            aiEndpointPort: 4783
         };
     }
 
@@ -341,7 +373,15 @@ export class StorageManager implements IStorageManager {
      */
     public async listGraphs(): Promise<Array<{ id: string; name: string; createdAt: Date; updatedAt: Date; nodeCount: number }>> {
         try {
-            await this.ensureWorkspaceDirectory();
+            const hasWorkspaceDirectory = await this.workspaceDirectoryExists();
+            if (!hasWorkspaceDirectory) {
+                return [];
+            }
+
+            const hasGraphsDirectory = await this.pathExists(this.graphsDir);
+            if (!hasGraphsDirectory) {
+                return [];
+            }
             
             const files = await fs.readdir(this.graphsDir);
             const graphFiles = files.filter(file => file.endsWith('.json') && file !== 'current-graph.json');

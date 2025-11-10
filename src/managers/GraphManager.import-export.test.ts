@@ -10,6 +10,7 @@ const mockStorageManager: IStorageManager = {
     loadGraphFromFile: vi.fn(),
     deleteGraphFile: vi.fn(),
     ensureWorkspaceDirectory: vi.fn(),
+    workspaceDirectoryExists: vi.fn(),
     getGraphsDirectory: vi.fn(),
     backupGraph: vi.fn(),
     restoreFromBackup: vi.fn(),
@@ -19,7 +20,8 @@ const mockStorageManager: IStorageManager = {
     listGraphs: vi.fn(),
     exportGraphToMarkdown: vi.fn(),
     isWorkspaceAccessible: vi.fn(),
-    getStorageStats: vi.fn()
+    getStorageStats: vi.fn(),
+    getWorkspaceRootPath: vi.fn(() => '/workspace')
 };
 
 describe('GraphManager Import/Export', () => {

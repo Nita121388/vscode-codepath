@@ -119,6 +119,7 @@ describe('WebviewManager Custom Menu', () => {
                 expect.objectContaining({ label: expect.stringContaining('复制') }),
                 expect.objectContaining({ label: expect.stringContaining('粘贴') }),
                 expect.objectContaining({ label: expect.stringContaining('剪切') }),
+                expect.objectContaining({ label: expect.stringContaining('文件路径') }),
                 expect.objectContaining({ label: expect.stringContaining('上移') }),
                 expect.objectContaining({ label: expect.stringContaining('下移') }),
             ]));
@@ -182,6 +183,17 @@ describe('WebviewManager Custom Menu', () => {
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNode');
         });
 
+        it('should execute copy file path action with node', async () => {
+            const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
+            (webviewManager as any).setCurrentNodeForOperation = vi.fn();
+            (vscode.commands.executeCommand as any).mockClear();
+
+            await executePreviewAction('📁 复制文件路径', 'test-node-id');
+
+            expect((webviewManager as any).setCurrentNodeForOperation).toHaveBeenCalledWith('test-node-id');
+            expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNodeFilePath');
+        });
+
         it('should execute paste action', async () => {
             // Setup
             const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
@@ -206,6 +218,19 @@ describe('WebviewManager Custom Menu', () => {
 
             // Verify
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'codepath');
+        });
+
+        it('should warn when copying file path without node', async () => {
+            const executePreviewAction = (webviewManager as any).executePreviewAction.bind(webviewManager);
+            (vscode.commands.executeCommand as any).mockClear();
+            (vscode.window.showWarningMessage as any).mockClear();
+
+            await executePreviewAction('📁 复制文件路径', null);
+
+            expect(vscode.window.showWarningMessage).toHaveBeenCalled();
+            const copyPathCalls = (vscode.commands.executeCommand as any).mock.calls
+                .filter((call: any[]) => call[0] === 'codepath.copyNodeFilePath');
+            expect(copyPathCalls.length).toBe(0);
         });
     });
 

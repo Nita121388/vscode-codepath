@@ -209,7 +209,10 @@ export const commands = {
 };
 
 export const env = {
-    openExternal: (_uri: any) => Promise.resolve(true)
+    openExternal: (_uri: any) => Promise.resolve(true),
+    clipboard: {
+        writeText: vi.fn((text: string) => Promise.resolve())
+    }
 };
 
 // Mock extension context

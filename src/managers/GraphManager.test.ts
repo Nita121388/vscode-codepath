@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import { GraphManager } from './GraphManager';
 import { Graph as GraphModel } from '../models/Graph';
 import { Node } from '../models/Node';
 import { IStorageManager } from '../interfaces/IStorageManager';
-import { Graph, GraphMetadata } from '../types';
+import { AIGraphBlueprint, Graph, GraphMetadata } from '../types';
 
 // Mock StorageManager
 const mockStorageManager: IStorageManager = {
@@ -11,6 +13,7 @@ const mockStorageManager: IStorageManager = {
     loadGraphFromFile: vi.fn(),
     deleteGraphFile: vi.fn(),
     ensureWorkspaceDirectory: vi.fn(),
+    workspaceDirectoryExists: vi.fn(),
     getGraphsDirectory: vi.fn(),
     backupGraph: vi.fn(),
     restoreFromBackup: vi.fn(),
@@ -20,18 +23,27 @@ const mockStorageManager: IStorageManager = {
     loadConfiguration: vi.fn(),
     exportGraphToMarkdown: vi.fn(),
     isWorkspaceAccessible: vi.fn(),
-    getStorageStats: vi.fn()
+    getStorageStats: vi.fn(),
+    getWorkspaceRootPath: vi.fn(() => '/workspace')
 };
 
 describe('GraphManager', () => {
     let graphManager: GraphManager;
+    let tempDir: string;
 
     beforeEach(() => {
         // Reset all mocks
         vi.clearAllMocks();
-        
+
+        tempDir = fs.mkdtempSync(path.join(process.cwd(), 'codepath-graph-manager-'));
+        (mockStorageManager.getWorkspaceRootPath as Mock).mockReturnValue(tempDir);
+
         // Create new instance with mocked storage manager
         graphManager = new GraphManager(mockStorageManager);
+    });
+
+    afterEach(() => {
+        fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
     describe('createGraph', () => {
@@ -92,6 +104,165 @@ describe('GraphManager', () => {
         });
     });
 
+    describe('createGraphFromBlueprint', () => {
+        it('should build and persist graph based on blueprint', async () => {
+            (mockStorageManager.saveGraphToFile as Mock).mockResolvedValue(undefined);
+
+            const rootPath = path.join(tempDir, 'src/root.ts');
+            const childPath = path.join(tempDir, 'src/child.ts');
+            fs.mkdirSync(path.dirname(rootPath), { recursive: true });
+            fs.writeFileSync(rootPath, '// root');
+            fs.writeFileSync(childPath, '// child');
+
+            const blueprint: AIGraphBlueprint = {
+                name: 'AI Blueprint Graph',
+                nodes: [
+                    {
+                        name: 'Root Node',
+                        filePath: rootPath,
+                        lineNumber: 10,
+                        description: '根节点描述',
+                        children: [
+                            {
+                                name: 'Child Node',
+                                filePath: childPath,
+                                lineNumber: 42
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            const result = await graphManager.createGraphFromBlueprint(blueprint);
+
+            expect(result.name).toBe('AI Blueprint Graph');
+            expect(result.nodes.size).toBe(2);
+            expect(mockStorageManager.saveGraphToFile).toHaveBeenCalledTimes(1);
+
+            const savedGraph = (mockStorageManager.saveGraphToFile as Mock).mock.calls[0][0];
+            expect(savedGraph).toBeInstanceOf(GraphModel);
+
+            const graphModel = GraphModel.fromJSON(result);
+            const rootNodes = graphModel.getRootNodes();
+            expect(rootNodes).toHaveLength(1);
+            expect(rootNodes[0].name).toBe('Root Node');
+            expect(rootNodes[0].childIds).toHaveLength(1);
+
+            const childNode = graphModel.getNode(rootNodes[0].childIds[0]);
+            expect(childNode).toBeDefined();
+            expect(childNode!.name).toBe('Child Node');
+            expect(childNode!.parentId).toBe(rootNodes[0].id);
+
+            const currentGraph = graphManager.getCurrentGraph();
+            expect(currentGraph).not.toBeNull();
+            expect(currentGraph!.id).toBe(result.id);
+        });
+
+        it('should resolve relative file paths against workspace root', async () => {
+            (mockStorageManager.saveGraphToFile as Mock).mockResolvedValue(undefined);
+            const relativePath = 'src/root.ts';
+            const expectedPath = path.join(tempDir, relativePath);
+            fs.mkdirSync(path.dirname(expectedPath), { recursive: true });
+            fs.writeFileSync(expectedPath, '// relative root');
+
+            const blueprint: AIGraphBlueprint = {
+                name: 'Relative Path Graph',
+                nodes: [
+                    {
+                        name: 'Root Node',
+                        filePath: relativePath,
+                        lineNumber: 8
+                    }
+                ]
+            };
+
+            const result = await graphManager.createGraphFromBlueprint(blueprint);
+            const graphModel = GraphModel.fromJSON(result);
+            const rootNode = graphModel.getRootNodes()[0];
+
+            expect(rootNode.filePath).toBe(path.normalize(expectedPath));
+        });
+
+        it('should throw error when blueprint file path does not exist', async () => {
+            (mockStorageManager.saveGraphToFile as Mock).mockResolvedValue(undefined);
+
+            const blueprint: AIGraphBlueprint = {
+                name: 'Missing File Graph',
+                nodes: [
+                    {
+                        name: 'Root Node',
+                        filePath: path.join(tempDir, 'src/missing.ts'),
+                        lineNumber: 5
+                    }
+                ]
+            };
+
+            await expect(graphManager.createGraphFromBlueprint(blueprint))
+                .rejects.toThrow('蓝图节点文件路径不存在或不是文件');
+            expect(mockStorageManager.saveGraphToFile).not.toHaveBeenCalled();
+        });
+
+        it('should reject blueprint path that points to a directory', async () => {
+            (mockStorageManager.saveGraphToFile as Mock).mockResolvedValue(undefined);
+
+            const directoryPath = path.join(tempDir, 'src/dir-node');
+            fs.mkdirSync(directoryPath, { recursive: true });
+
+            const blueprint: AIGraphBlueprint = {
+                name: 'Directory Path Graph',
+                nodes: [
+                    {
+                        name: 'Dir Node',
+                        filePath: directoryPath,
+                        lineNumber: 1
+                    }
+                ]
+            };
+
+            await expect(graphManager.createGraphFromBlueprint(blueprint))
+                .rejects.toThrow('蓝图节点文件路径不存在或不是文件');
+            expect(mockStorageManager.saveGraphToFile).not.toHaveBeenCalled();
+        });
+
+        it('should reject relative blueprint path that escapes workspace root', async () => {
+            (mockStorageManager.saveGraphToFile as Mock).mockResolvedValue(undefined);
+
+            const outsideFile = path.join(tempDir, '..', 'outside-node.ts');
+            fs.writeFileSync(outsideFile, '// outside node');
+
+            try {
+                const blueprint: AIGraphBlueprint = {
+                    name: 'Outside Workspace Graph',
+                    nodes: [
+                        {
+                            name: 'Outside Node',
+                            filePath: '../outside-node.ts',
+                            lineNumber: 3
+                        }
+                    ]
+                };
+
+                await expect(graphManager.createGraphFromBlueprint(blueprint))
+                    .rejects.toThrow('蓝图节点文件路径不存在或不是文件');
+                expect(mockStorageManager.saveGraphToFile).not.toHaveBeenCalled();
+            } finally {
+                if (fs.existsSync(outsideFile)) {
+                    fs.unlinkSync(outsideFile);
+                }
+            }
+        });
+
+        it('should reject blueprint without nodes', async () => {
+            const invalidBlueprint: AIGraphBlueprint = {
+                name: 'Empty',
+                nodes: []
+            };
+
+            await expect(graphManager.createGraphFromBlueprint(invalidBlueprint))
+                .rejects.toThrow('蓝图必须至少包含一个根节点');
+            expect(mockStorageManager.saveGraphToFile).not.toHaveBeenCalled();
+        });
+    });
     describe('loadGraph', () => {
         it('should load graph by ID', async () => {
             // Arrange

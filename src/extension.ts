@@ -22,6 +22,7 @@ import { CommandManager } from './managers/CommandManager';
 import { StatusBarManager } from './managers/StatusBarManager';
 import { WebviewManager } from './managers/WebviewManager';
 import { IntegrationManager } from './managers/IntegrationManager';
+import { AIEndpointManager } from './managers/AIEndpointManager';
 import { PreviewSidebarProvider } from './views/PreviewSidebarProvider';
 import { RootSymbolService } from './services/RootSymbolService';
 import { CodePathError } from './types/errors';
@@ -51,6 +52,8 @@ interface ExtensionState {
     commandManager?: CommandManager;
     /** Status bar manager for status bar integration */
     statusBarManager?: StatusBarManager;
+    /** AI endpoint manager for external agent integration */
+    aiEndpointManager?: AIEndpointManager;
     /** VS Code extension context */
     context?: vscode.ExtensionContext;
     /** Flag indicating if extension is fully initialized */
@@ -104,6 +107,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // Load configuration
         await loadConfiguration();
 
+        // Configure AI endpoint based on settings
+        await setupAiEndpointFromConfiguration();
+
         // Auto-load last graph if enabled
         // 根据用户配置自动恢复上次的图数据，提高扩展启动后的工作连续性
         await autoLoadLastGraph();
@@ -111,6 +117,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         // Register commands and UI components
         registerViewProviders(context);
         registerCommands(context);
+        registerAiEndpointCommands(context);
         setupStatusBar();
 
         // Mark as initialized
@@ -213,6 +220,42 @@ async function initializeManagers(context: vscode.ExtensionContext): Promise<voi
             context
         );
 
+        extensionState.aiEndpointManager = new AIEndpointManager(
+            extensionState.graphManager,
+            {
+                onGraphGenerated: async () => {
+                    try {
+                        const graphManager = extensionState.graphManager;
+                        if (!graphManager) {
+                            return;
+                        }
+
+                        if (extensionState.integrationManager) {
+                            await extensionState.integrationManager.updatePreview();
+                            await extensionState.integrationManager.showPreview();
+                        }
+
+                        const currentGraph = graphManager.getCurrentGraph();
+                        if (currentGraph && extensionState.statusBarManager) {
+                            extensionState.statusBarManager.updateGraphInfo(
+                                currentGraph.name,
+                                currentGraph.nodes.size
+                            );
+                            const currentNodeName = currentGraph.currentNodeId
+                                ? currentGraph.nodes.get(currentGraph.currentNodeId)?.name ?? null
+                                : null;
+                            extensionState.statusBarManager.updateCurrentNode(currentNodeName);
+                        }
+
+                        await vscode.commands.executeCommand('setContext', 'codepath.hasCurrentGraph', true);
+                    } catch (error) {
+                        console.error('[AIEndpointManager] Failed to refresh UI after graph generation', error);
+                    }
+                }
+            }
+        );
+        extensionState.disposables.push(extensionState.aiEndpointManager);
+
         console.log('CodePath: Core managers initialized');
     } catch (error) {
         throw CodePathError.filesystemError(
@@ -230,7 +273,15 @@ async function setupWorkspaceDirectory(): Promise<void> {
             throw new Error('StorageManager not initialized');
         }
 
-        await extensionState.storageManager.ensureWorkspaceDirectory();
+        const storageManager = extensionState.storageManager;
+        const workspaceExists = await storageManager.workspaceDirectoryExists();
+
+        if (!workspaceExists) {
+            console.log('CodePath: Workspace storage not found; will create on first use');
+            return;
+        }
+
+        await storageManager.ensureWorkspaceDirectory();
         console.log('CodePath: Workspace directory setup completed');
     } catch (error) {
         throw CodePathError.filesystemError(
@@ -253,6 +304,32 @@ async function loadConfiguration(): Promise<void> {
     } catch (error) {
         console.warn('CodePath: Failed to load configuration, using defaults:', error);
         // This is not a fatal error, we can continue with defaults
+    }
+}
+
+/**
+ * 根据配置自动启动 AI 端点
+ */
+async function setupAiEndpointFromConfiguration(): Promise<void> {
+    try {
+        if (!extensionState.configManager || !extensionState.aiEndpointManager) {
+            return;
+        }
+
+        const config = extensionState.configManager.getConfiguration();
+        if (!config.aiEndpointAutoStart) {
+            return;
+        }
+
+        try {
+            const port = await extensionState.aiEndpointManager.start(config.aiEndpointPort);
+            console.log(`CodePath: AI endpoint auto-started on port ${port}`);
+        } catch (error) {
+            console.error('CodePath: Failed to auto-start AI endpoint:', error);
+            vscode.window.showWarningMessage('CodePath: 无法自动启动 AI 接口，请检查端口配置是否被占用。');
+        }
+    } catch (error) {
+        console.error('CodePath: Error while configuring AI endpoint:', error);
     }
 }
 
@@ -373,6 +450,57 @@ function registerCommands(context: vscode.ExtensionContext): void {
     }
 }
 
+function registerAiEndpointCommands(context: vscode.ExtensionContext): void {
+    if (!extensionState.aiEndpointManager || !extensionState.configManager) {
+        console.warn('CodePath: AI endpoint manager not initialized, skipping AI commands registration');
+        return;
+    }
+
+    const aiManager = extensionState.aiEndpointManager;
+
+    const startDisposable = vscode.commands.registerCommand('codepath.startAiEndpoint', async () => {
+        if (!extensionState.configManager) {
+            vscode.window.showErrorMessage('CodePath: 配置管理器未初始化，无法启动 AI 接口');
+            return;
+        }
+
+        if (aiManager.isRunning()) {
+            const runningPort = aiManager.getPort();
+            vscode.window.showInformationMessage(`CodePath: AI 接口已在端口 ${runningPort ?? '未知'} 运行`);
+            return;
+        }
+
+        const config = extensionState.configManager.getConfiguration();
+        try {
+            const port = await aiManager.start(config.aiEndpointPort);
+            vscode.window.showInformationMessage(`CodePath: AI 接口已启动，监听端口 ${port}`);
+        } catch (error) {
+            console.error('CodePath: Failed to start AI endpoint:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`CodePath: 启动 AI 接口失败 - ${message}`);
+        }
+    });
+
+    const stopDisposable = vscode.commands.registerCommand('codepath.stopAiEndpoint', async () => {
+        if (!aiManager.isRunning()) {
+            vscode.window.showInformationMessage('CodePath: AI 接口尚未启动');
+            return;
+        }
+
+        try {
+            await aiManager.stop();
+            vscode.window.showInformationMessage('CodePath: AI 接口已停止');
+        } catch (error) {
+            console.error('CodePath: Failed to stop AI endpoint:', error);
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`CodePath: 停止 AI 接口失败 - ${message}`);
+        }
+    });
+
+    context.subscriptions.push(startDisposable, stopDisposable);
+    extensionState.disposables.push(startDisposable, stopDisposable);
+}
+
 /**
  * Sets up the status bar
  */
@@ -411,6 +539,14 @@ async function cleanup(): Promise<void> {
         // Save current state if auto-save is enabled
         await saveCurrentState();
 
+        if (extensionState.aiEndpointManager) {
+            try {
+                await extensionState.aiEndpointManager.stop();
+            } catch (error) {
+                console.warn('CodePath: Failed to stop AI endpoint during cleanup:', error);
+            }
+        }
+
         // Dispose of all disposables
         for (const disposable of extensionState.disposables) {
             // 逐一调用 dispose，容错处理防止单个资源释放失败影响整体流程
@@ -430,6 +566,7 @@ async function cleanup(): Promise<void> {
         extensionState.previewManager = undefined;
         extensionState.nodeManager = undefined;
         extensionState.graphManager = undefined;
+        extensionState.aiEndpointManager = undefined;
         extensionState.configManager = undefined;
         extensionState.storageManager = undefined;
         extensionState.context = undefined;
@@ -446,18 +583,19 @@ async function cleanup(): Promise<void> {
  */
 async function saveCurrentState(): Promise<void> {
     try {
-        if (!extensionState.isInitialized || !extensionState.configManager || !extensionState.graphManager) {
+        const { isInitialized, configManager, graphManager } = extensionState;
+        if (!isInitialized || !configManager || !graphManager) {
             return;
         }
 
-        const config = extensionState.configManager.getConfiguration();
+        const config = configManager.getConfiguration();
         if (!config.autoSave) {
             return;
         }
 
-        const currentGraph = extensionState.graphManager.getCurrentGraph();
+        const currentGraph = graphManager.getCurrentGraph();
         if (currentGraph) {
-            await extensionState.graphManager.saveGraph(currentGraph);
+            await graphManager.saveGraph(currentGraph);
             console.log('CodePath: Current graph saved before deactivation');
         }
     } catch (error) {

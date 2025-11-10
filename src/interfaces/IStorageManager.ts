@@ -6,6 +6,7 @@ export interface IStorageManager {
     loadGraphFromFile(graphId: string): Promise<Graph>;
     deleteGraphFile(graphId: string): Promise<void>;
     ensureWorkspaceDirectory(): Promise<void>;
+    workspaceDirectoryExists(): Promise<boolean>;
     getGraphsDirectory(): string;
     backupGraph(graph: Graph): Promise<void>;
     restoreFromBackup(graphId: string): Promise<Graph>;
@@ -16,4 +17,5 @@ export interface IStorageManager {
     exportGraphToMarkdown(graph: Graph, fileName?: string): Promise<string>;
     isWorkspaceAccessible(): Promise<boolean>;
     getStorageStats(): Promise<{ graphCount: number; totalSize: number; backupCount: number }>;
+    getWorkspaceRootPath(): string;
 }

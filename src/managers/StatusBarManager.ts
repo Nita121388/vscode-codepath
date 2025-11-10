@@ -50,6 +50,13 @@ export class StatusBarManager implements IStatusBarManager {
                 detail: 'Import CodePath',
                 command: 'codepath.importGraph'
             },
+            // AI Features - Temporarily disabled for future consideration
+            // {
+            //     label: '🤖 AI 生成 CodePath',
+            //     description: '使用 AI 蓝图快速创建 CodePath',
+            //     detail: 'Generate from AI blueprint',
+            //     command: 'codepath.generateGraphFromBlueprint'
+            // },
             {
                 label: '🗑️ 删除 CodePath',
                 description: '删除现有的 CodePath',
@@ -113,6 +120,7 @@ export class StatusBarManager implements IStatusBarManager {
     }
 
     private async showQuickMenu(): Promise<void> {
+        // AI features are now commented out in menuItems, so no filtering needed
         const selected = await vscode.window.showQuickPick(this.menuItems, {
             placeHolder: 'CodePath 快捷操作',
             matchOnDescription: true,

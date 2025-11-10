@@ -36,6 +36,13 @@ vi.mock('vscode', () => ({
         registerCommand: vi.fn(),
         executeCommand: vi.fn()
     },
+    env: {
+        clipboard: {
+            writeText: vi.fn(),
+            readText: vi.fn()
+        },
+        openExternal: vi.fn()
+    },
     Position: vi.fn(),
     Selection: vi.fn(),
     Range: vi.fn(),
@@ -63,6 +70,7 @@ describe('CommandManager', () => {
         mockGraphManager = {
             getCurrentGraph: vi.fn(),
             createGraph: vi.fn(),
+            createGraphFromBlueprint: vi.fn(),
             listGraphs: vi.fn(),
             loadGraph: vi.fn(),
             exportGraph: vi.fn(),
@@ -104,13 +112,18 @@ describe('CommandManager', () => {
         } as any;
 
         commandManager = new CommandManager(mockGraphManager, mockNodeManager, mockIntegrationManager);
+        (vscode.env.clipboard.readText as Mock).mockResolvedValue('');
+        (mockIntegrationManager.showPreview as Mock).mockResolvedValue(undefined);
+        (mockIntegrationManager.switchGraphWorkflow as Mock).mockResolvedValue(undefined);
+        (vscode.window.activeTextEditor as any) = null;
     });
 
     describe('registerCommands', () => {
         it('should register all commands', () => {
             commandManager.registerCommands(mockContext);
 
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(30);
+            // AI features disabled, so 31 commands instead of 32
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(31);
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createChildNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createParentNode', expect.any(Function));
@@ -122,6 +135,8 @@ describe('CommandManager', () => {
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.switchGraph', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.exportGraph', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.importGraph', expect.any(Function));
+            // AI Features - Temporarily disabled
+            // expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.generateGraphFromBlueprint', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.deleteGraph', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.togglePreviewFormat', expect.any(Function));
         });
@@ -136,6 +151,115 @@ describe('CommandManager', () => {
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentNode', true);
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentGraph', true);
         });
+
+        describe('handleCopyNodeFilePath', () => {
+            it('should copy file path and show success message', async () => {
+                const mockCurrentNode = { id: 'node-1', name: 'test node', filePath: '/test/path.ts' };
+                (mockNodeManager.getCurrentNode as Mock).mockReturnValue(mockCurrentNode);
+
+                commandManager.registerCommands(mockContext);
+                const copyPathHandler = (vscode.commands.registerCommand as Mock).mock.calls
+                    .find(call => call[0] === 'codepath.copyNodeFilePath')?.[1];
+
+                (vscode.window.showInformationMessage as Mock).mockClear();
+
+                await copyPathHandler();
+
+                expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith('/test/path.ts');
+                expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('已复制当前节点的文件路径', '再次复制');
+            });
+
+            it('should show error when no current node', async () => {
+                (mockNodeManager.getCurrentNode as Mock).mockReturnValue(null);
+
+                commandManager.registerCommands(mockContext);
+                const copyPathHandler = (vscode.commands.registerCommand as Mock).mock.calls
+                    .find(call => call[0] === 'codepath.copyNodeFilePath')?.[1];
+
+                await copyPathHandler();
+
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点文件路径失败: 当前没有选中节点', '选择文本', '查看详情');
+            });
+
+            it('should show error when node has no file path', async () => {
+                const mockCurrentNode = { id: 'node-1', name: 'test node', filePath: '' };
+                (mockNodeManager.getCurrentNode as Mock).mockReturnValue(mockCurrentNode);
+
+                commandManager.registerCommands(mockContext);
+                const copyPathHandler = (vscode.commands.registerCommand as Mock).mock.calls
+                    .find(call => call[0] === 'codepath.copyNodeFilePath')?.[1];
+
+                await copyPathHandler();
+
+                expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('复制节点文件路径失败: 该节点没有关联文件路径', '选择文本', '查看详情');
+            });
+        });
+
+        // AI Features - Temporarily disabled
+        // describe('handleGenerateGraphFromBlueprint', () => {
+        //     it('should generate graph from selected blueprint', async () => {
+        //         const blueprintJson = `{
+        //   "name": "Auto Graph",
+        //   "nodes": [
+        //     {
+        //       "name": "Root",
+        //       "filePath": "src/index.ts",
+        //       "lineNumber": 1
+        //     }
+        //   ]
+        // }`;
+        //         const mockEditor = {
+        //             selection: { isEmpty: false },
+        //             document: {
+        //                 getText: vi.fn().mockImplementation(() => blueprintJson),
+        //                 languageId: 'json',
+        //                 uri: { fsPath: '/workspace/ai-blueprint.json' }
+        //             }
+        //         };
+        //         (vscode.window.activeTextEditor as any) = mockEditor;
+
+        //         const graphId = 'ai-graph';
+        //         const storedGraph = new Graph(graphId, 'Auto Graph');
+        //         const rootNode = new Node('node-root', 'Root', 'src/index.ts', 1);
+        //         storedGraph.addNode(rootNode);
+        //         storedGraph.setCurrentNode(rootNode.id);
+        //         (mockGraphManager.createGraphFromBlueprint as Mock).mockResolvedValue(storedGraph.toJSON());
+
+        //         commandManager.registerCommands(mockContext);
+        //         const handler = (vscode.commands.registerCommand as Mock).mock.calls
+        //             .find(call => call[0] === 'codepath.generateGraphFromBlueprint')?.[1];
+
+        //         await handler();
+
+        //         expect(mockGraphManager.createGraphFromBlueprint).toHaveBeenCalledTimes(1);
+        //         const blueprintArg = (mockGraphManager.createGraphFromBlueprint as Mock).mock.calls[0][0];
+        //         expect(blueprintArg).toEqual(expect.objectContaining({ name: 'Auto Graph' }));
+        //         expect(blueprintArg.nodes).toHaveLength(1);
+        //         expect(blueprintArg.nodes[0]).toEqual(expect.objectContaining({
+        //             name: 'Root',
+        //             filePath: 'src/index.ts',
+        //             lineNumber: 1
+        //         }));
+        //         expect(mockIntegrationManager.showPreview).toHaveBeenCalled();
+        //         expect(mockIntegrationManager.switchGraphWorkflow).toHaveBeenCalledWith(graphId);
+        //         expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+
+        //         (vscode.window.activeTextEditor as any) = null;
+        //     });
+
+        //     it('should warn when blueprint content is missing', async () => {
+        //         (vscode.env.clipboard.readText as Mock).mockResolvedValue('   ');
+
+        //         commandManager.registerCommands(mockContext);
+        //         const handler = (vscode.commands.registerCommand as Mock).mock.calls
+        //             .find(call => call[0] === 'codepath.generateGraphFromBlueprint')?.[1];
+
+        //         await handler();
+
+        //         expect(vscode.window.showWarningMessage).toHaveBeenCalledWith('未获取到蓝图内容，请先选中或复制蓝图 JSON 后重试。');
+        //         expect(mockGraphManager.createGraphFromBlueprint).not.toHaveBeenCalled();
+        //     });
+        // });
     });
 
     describe('handleCreateNode', () => {
@@ -1003,6 +1127,7 @@ describe('CommandManager', () => {
                 pasteNode: vi.fn().mockResolvedValue([{ id: 'pasted-1', name: 'pasted node' }]),
                 cutNode: vi.fn().mockResolvedValue(undefined)
             });
+            (vscode.env.clipboard.writeText as Mock).mockClear();
         });
 
         describe('handleCopyNode', () => {
@@ -1158,7 +1283,6 @@ describe('CommandManager', () => {
             });
         });
     });
-
     describe('Node Order Operations', () => {
         beforeEach(() => {
             // Mock NodeOrderManager methods directly on the commandManager instance
@@ -1856,6 +1980,7 @@ describe('CommandManager', () => {
                 'codepath.markAsParentNode',
                 'codepath.markAsBroNode',
                 'codepath.copyNode',
+                'codepath.copyNodeFilePath',
                 'codepath.pasteNode',
                 'codepath.cutNode',
                 'codepath.moveNodeUp',

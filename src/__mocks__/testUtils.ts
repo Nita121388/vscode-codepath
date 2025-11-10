@@ -244,6 +244,7 @@ export function createMockStorageManager(): any {
         importGraph: vi.fn(() => Promise.resolve({ id: 'imported', name: 'Imported Graph' })),
         ensureDirectories: vi.fn(() => Promise.resolve()),
         ensureWorkspaceDirectory: vi.fn(() => Promise.resolve()),
+        workspaceDirectoryExists: vi.fn(() => Promise.resolve(true)),
         dispose: vi.fn()
     };
 }

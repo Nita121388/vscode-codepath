@@ -21,6 +21,10 @@ const mockStorageManager: IStorageManager = {
     loadGraphFromFile: vi.fn(),
     deleteGraphFile: vi.fn(),
     ensureWorkspaceDirectory: vi.fn(),
+    workspaceDirectoryExists: vi.fn(),
+    getGraphsDirectory: vi.fn(),
+    saveConfiguration: vi.fn(),
+    loadConfiguration: vi.fn(),
     isWorkspaceAccessible: vi.fn(),
     listGraphs: vi.fn(),
     getCurrentGraphId: vi.fn(),
@@ -28,7 +32,8 @@ const mockStorageManager: IStorageManager = {
     backupGraph: vi.fn(),
     restoreFromBackup: vi.fn(),
     getStorageStats: vi.fn(),
-    exportGraphToMarkdown: vi.fn()
+    exportGraphToMarkdown: vi.fn(),
+    getWorkspaceRootPath: vi.fn(() => '/workspace')
 };
 
 describe('GraphManager - Node Location Validation on Load', () => {

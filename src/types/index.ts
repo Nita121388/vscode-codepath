@@ -33,6 +33,27 @@ export interface Graph {
     nodeOrder?: Map<string, string[]>; // parentId -> ordered childIds
 }
 
+/**
+ * AI 生成 CodePath 时使用的节点蓝图定义
+ */
+export interface AINodeBlueprint {
+    name: string;
+    filePath: string;
+    lineNumber: number;
+    codeSnippet?: string;
+    description?: string;
+    children?: AINodeBlueprint[];
+}
+
+/**
+ * AI 生成 CodePath 时的整体蓝图定义
+ */
+export interface AIGraphBlueprint {
+    name?: string;
+    description?: string;
+    nodes: AINodeBlueprint[];
+}
+
 export interface GraphMetadata {
     id: string;
     name: string;
@@ -62,6 +83,8 @@ export interface Configuration {
     enableBackup: boolean;
     backupInterval: number;
     rootSymbolPreferences: RootSymbolPreferences;
+    aiEndpointAutoStart: boolean;
+    aiEndpointPort: number;
 }
 
 export interface StatusBarInfo {

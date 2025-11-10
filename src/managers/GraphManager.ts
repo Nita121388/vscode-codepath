@@ -1,6 +1,8 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Graph as GraphModel } from '../models/Graph';
 import { Node } from '../models/Node';
-import { Graph, GraphMetadata } from '../types';
+import { AIGraphBlueprint, AINodeBlueprint, Graph, GraphMetadata } from '../types';
 import { IGraphManager } from '../interfaces/IGraphManager';
 import { IStorageManager } from '../interfaces/IStorageManager';
 import { StorageManager } from './StorageManager';
@@ -40,6 +42,37 @@ export class GraphManager implements IGraphManager {
             return graph.toJSON();
         } catch (error) {
             throw new Error(`Failed to create graph: ${error}`);
+        }
+    }
+
+    /**
+     * 基于 AI 蓝图批量创建 CodePath
+     */
+    public async createGraphFromBlueprint(blueprint: AIGraphBlueprint): Promise<Graph> {
+        try {
+            this.validateBlueprint(blueprint);
+
+            const graphId = GraphModel.generateId();
+            const graphName = blueprint.name?.trim() || `AI CodePath ${new Date().toLocaleString()}`;
+            const graph = new GraphModel(graphId, graphName);
+
+            const createdNodeIds: string[] = [];
+            this.buildGraphFromBlueprintNodes(blueprint.nodes, graph, null, createdNodeIds);
+
+            if (createdNodeIds.length === 0) {
+                throw new Error('蓝图中未包含任何节点');
+            }
+
+            graph.setCurrentNode(createdNodeIds[0]);
+            this.validateImportedGraph(graph);
+
+            await this.storageManager.saveGraphToFile(graph);
+            this.currentGraph = graph;
+
+            return graph.toJSON();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to create graph from blueprint: ${message}`);
         }
     }
 
@@ -638,6 +671,174 @@ export class GraphManager implements IGraphManager {
         }
         
         return graph;
+    }
+
+    /**
+     * 校验 AI 蓝图结构合法性
+     */
+    private validateBlueprint(blueprint: AIGraphBlueprint): void {
+        if (!blueprint || typeof blueprint !== 'object') {
+            throw new Error('蓝图数据必须是有效对象');
+        }
+
+        if (!Array.isArray(blueprint.nodes) || blueprint.nodes.length === 0) {
+            throw new Error('蓝图必须至少包含一个根节点');
+        }
+
+        const maxNodes = 1000;
+        const totalNodes = this.countBlueprintNodes(blueprint.nodes);
+        if (totalNodes > maxNodes) {
+            throw new Error(`蓝图节点数量 ${totalNodes} 超过限制 ${maxNodes}`);
+        }
+
+        const validateNode = (node: AINodeBlueprint, path: string): void => {
+            if (!node || typeof node !== 'object') {
+                throw new Error(`蓝图节点 ${path} 必须是对象`);
+            }
+
+            if (!node.name || typeof node.name !== 'string' || node.name.trim().length === 0) {
+                throw new Error(`蓝图节点 ${path} 缺少有效的 name 字段`);
+            }
+
+            if (!node.filePath || typeof node.filePath !== 'string' || node.filePath.trim().length === 0) {
+                throw new Error(`蓝图节点 ${path} 缺少有效的 filePath 字段`);
+            }
+
+            if (typeof node.lineNumber !== 'number' || !Number.isInteger(node.lineNumber) || node.lineNumber < 1) {
+                throw new Error(`蓝图节点 ${path} 的 lineNumber 必须是大于等于 1 的整数`);
+            }
+
+            if (node.children !== undefined) {
+                if (!Array.isArray(node.children)) {
+                    throw new Error(`蓝图节点 ${path} 的 children 必须是数组`);
+                }
+
+                node.children.forEach((child, index) => {
+                    validateNode(child, `${path}.${index + 1}`);
+                });
+            }
+        };
+
+        blueprint.nodes.forEach((node, index) => {
+            validateNode(node, `root[${index}]`);
+        });
+    }
+
+    /**
+     * 统计蓝图节点总数
+     */
+    private countBlueprintNodes(nodes: AINodeBlueprint[]): number {
+        return nodes.reduce((total, node) => {
+            const childCount = node.children ? this.countBlueprintNodes(node.children) : 0;
+            return total + 1 + childCount;
+        }, 0);
+    }
+
+    /**
+     * 根据蓝图递归创建节点
+     */
+    private buildGraphFromBlueprintNodes(
+        nodes: AINodeBlueprint[],
+        graph: GraphModel,
+        parentId: string | null,
+        createdNodeIds: string[]
+    ): void {
+        for (const nodeBlueprint of nodes) {
+            const trimmedName = nodeBlueprint.name.trim();
+            const nodeId = Node.generateId();
+            const resolvedPath = this.resolveBlueprintFilePath(nodeBlueprint.filePath);
+            const node = new Node(
+                nodeId,
+                trimmedName,
+                resolvedPath,
+                nodeBlueprint.lineNumber,
+                nodeBlueprint.codeSnippet,
+                parentId
+            );
+
+            if (nodeBlueprint.description && nodeBlueprint.description.trim().length > 0) {
+                node.description = nodeBlueprint.description.trim();
+            }
+
+            graph.addNode(node);
+
+            if (parentId) {
+                const parentNode = graph.getNode(parentId);
+                if (parentNode) {
+                    parentNode.addChild(nodeId);
+                }
+            }
+
+            createdNodeIds.push(nodeId);
+
+            if (nodeBlueprint.children && nodeBlueprint.children.length > 0) {
+                this.buildGraphFromBlueprintNodes(nodeBlueprint.children, graph, nodeId, createdNodeIds);
+            }
+        }
+    }
+
+    /**
+     * 将蓝图中的文件路径解析为工作区内有效的绝对路径
+     */
+    private resolveBlueprintFilePath(filePath: string): string {
+        const trimmed = filePath.trim();
+
+        if (!trimmed) {
+            throw new Error('蓝图节点缺少有效的文件路径');
+        }
+
+        const workspaceRoot = this.safeGetWorkspaceRoot();
+        const candidates: Array<{ path: string; requiresWorkspaceScope: boolean }> = [];
+
+        if (path.isAbsolute(trimmed)) {
+            candidates.push({
+                path: path.normalize(trimmed),
+                requiresWorkspaceScope: false
+            });
+        } else {
+            if (!workspaceRoot) {
+                throw new Error(`蓝图节点路径 ${trimmed} 无法解析为工作区内的文件`);
+            }
+            candidates.push({
+                path: path.normalize(path.join(workspaceRoot, trimmed)),
+                requiresWorkspaceScope: true
+            });
+        }
+
+        for (const candidate of candidates) {
+            try {
+                const stats = fs.statSync(candidate.path);
+                if (!stats.isFile()) {
+                    continue;
+                }
+
+                if (candidate.requiresWorkspaceScope && workspaceRoot) {
+                    const resolvedRoot = path.resolve(workspaceRoot);
+                    const resolvedCandidate = path.resolve(candidate.path);
+                    const relative = path.relative(resolvedRoot, resolvedCandidate);
+                    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+                        continue;
+                    }
+                }
+
+                return path.resolve(candidate.path);
+            } catch (error) {
+                console.warn('[GraphManager] 蓝图路径校验失败，candidate=', candidate.path, error);
+            }
+        }
+
+        throw new Error(`蓝图节点文件路径不存在或不是文件: ${trimmed}`);
+    }
+
+    private safeGetWorkspaceRoot(): string | null {
+        try {
+            if (typeof (this.storageManager as any).getWorkspaceRootPath === 'function') {
+                return this.storageManager.getWorkspaceRootPath();
+            }
+        } catch (error) {
+            console.warn('[GraphManager] 获取工作区根目录失败', error);
+        }
+        return null;
     }
 
     /**

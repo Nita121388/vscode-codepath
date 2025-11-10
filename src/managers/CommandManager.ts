@@ -6,6 +6,7 @@ import { IntegrationManager } from './IntegrationManager';
 import { ClipboardManager } from './ClipboardManager';
 import { NodeOrderManager } from './NodeOrderManager';
 import { FeedbackManager } from './FeedbackManager';
+import { AIGraphBlueprint } from '../types';
 import { CodePathError } from '../types/errors';
 import { executeCommandSafely } from '../utils/vscodeHelpers';
 
@@ -63,6 +64,7 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.copyNode', this.handleCopyNode.bind(this));
         this.registerCommand(context, 'codepath.pasteNode', this.handlePasteNode.bind(this));
         this.registerCommand(context, 'codepath.cutNode', this.handleCutNode.bind(this));
+        this.registerCommand(context, 'codepath.copyNodeFilePath', this.handleCopyNodeFilePath.bind(this));
         
         // Register node order commands
         this.registerCommand(context, 'codepath.moveNodeUp', this.handleMoveNodeUp.bind(this));
@@ -78,6 +80,8 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.switchGraph', this.handleSwitchGraph.bind(this));
         this.registerCommand(context, 'codepath.exportGraph', this.handleExportGraph.bind(this));
         this.registerCommand(context, 'codepath.importGraph', this.handleImportGraph.bind(this));
+        // AI Features - Temporarily disabled for future consideration
+        // this.registerCommand(context, 'codepath.generateGraphFromBlueprint', this.handleGenerateGraphFromBlueprint.bind(this));
         this.registerCommand(context, 'codepath.deleteGraph', this.handleDeleteGraph.bind(this));
         this.registerCommand(context, 'codepath.togglePreviewFormat', this.handleTogglePreviewFormat.bind(this));
         this.registerCommand(context, 'codepath.validateNodeLocations', this.handleValidateNodeLocations.bind(this));
@@ -245,6 +249,29 @@ export class CommandManager {
             });
         } catch (error) {
             this.handleError('剪切节点', error);
+        }
+    }
+
+    /**
+     * Handle copying current node file path
+     */
+    private async handleCopyNodeFilePath(): Promise<void> {
+        try {
+            const currentNode = this.nodeManager.getCurrentNode();
+            if (!currentNode) {
+                throw new Error('当前没有选中节点');
+            }
+
+            if (!currentNode.filePath) {
+                throw new Error('该节点没有关联文件路径');
+            }
+
+            await vscode.env.clipboard.writeText(currentNode.filePath);
+            this.showSuccess('已复制当前节点的文件路径', `节点: ${currentNode.name}`, '再次复制', async () => {
+                await vscode.env.clipboard.writeText(currentNode.filePath);
+            });
+        } catch (error) {
+            this.handleError('复制节点文件路径', error);
         }
     }
 
@@ -603,6 +630,37 @@ export class CommandManager {
             }
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to import CodePath: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Handle creating a graph from AI generated blueprint JSON
+     */
+    private async handleGenerateGraphFromBlueprint(): Promise<void> {
+        try {
+            const rawContent = await this.resolveBlueprintContent();
+
+            if (!rawContent) {
+                vscode.window.showWarningMessage('未获取到蓝图内容，请先选中或复制蓝图 JSON 后重试。');
+                return;
+            }
+
+            const jsonContent = this.extractBlueprintJson(rawContent);
+            let blueprint: AIGraphBlueprint;
+
+            try {
+                blueprint = JSON.parse(jsonContent) as AIGraphBlueprint;
+            } catch (parseError) {
+                const message = parseError instanceof Error ? parseError.message : String(parseError);
+                throw new Error(`无法解析蓝图 JSON：${message}`);
+            }
+
+            const graph = await this.graphManager.createGraphFromBlueprint(blueprint);
+
+            await this.integrationManager.showPreview();
+            await this.integrationManager.switchGraphWorkflow(graph.id);
+        } catch (error) {
+            this.feedbackManager.handleError('AI 蓝图生成 CodePath', error, 'CommandManager');
         }
     }
 
@@ -1160,6 +1218,63 @@ export class CommandManager {
         }
 
         return null;
+    }
+
+    /**
+     * 获取 AI 蓝图内容来源，优先选中内容，其次尝试剪贴板
+     */
+    private async resolveBlueprintContent(): Promise<string | null> {
+        const editor = vscode.window.activeTextEditor;
+
+        if (editor) {
+            const selection = editor.selection;
+            if (selection && !selection.isEmpty) {
+                const selectedText = editor.document.getText(selection).trim();
+                if (selectedText) {
+                    return selectedText;
+                }
+            }
+
+            const documentText = editor.document.getText().trim();
+            const languageId = editor.document.languageId;
+            const isTextCandidate = ['json', 'markdown', 'plaintext'].includes(languageId);
+
+            if (isTextCandidate && documentText && documentText.length <= 200000 && documentText.includes('{')) {
+                return documentText;
+            }
+        }
+
+        const clipboardText = (await vscode.env.clipboard.readText()).trim();
+        if (clipboardText) {
+            return clipboardText;
+        }
+
+        return null;
+    }
+
+    /**
+     * 从文本中提取 JSON 负载，兼容 Markdown 代码块
+     */
+    private extractBlueprintJson(rawContent: string): string {
+        if (!rawContent) {
+            return '';
+        }
+
+        const trimmed = rawContent.trim();
+        const jsonBlockPattern = /```json\s*([\s\S]*?)```/i;
+        const genericBlockPattern = /```\s*([\s\S]*?)```/;
+
+        const jsonBlockMatch = trimmed.match(jsonBlockPattern);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+            return jsonBlockMatch[1].trim();
+        }
+
+        const genericMatch = trimmed.match(genericBlockPattern);
+        if (genericMatch && genericMatch[1]) {
+            return genericMatch[1].trim();
+        }
+
+        return trimmed;
     }
 
     /**

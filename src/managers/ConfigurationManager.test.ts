@@ -9,6 +9,7 @@ const mockStorageManager: IStorageManager = {
     loadGraphFromFile: vi.fn(),
     deleteGraphFile: vi.fn(),
     ensureWorkspaceDirectory: vi.fn(),
+    workspaceDirectoryExists: vi.fn(),
     getGraphsDirectory: vi.fn(),
     backupGraph: vi.fn(),
     restoreFromBackup: vi.fn(),
@@ -18,7 +19,8 @@ const mockStorageManager: IStorageManager = {
     listGraphs: vi.fn(),
     exportGraphToMarkdown: vi.fn(),
     isWorkspaceAccessible: vi.fn(),
-    getStorageStats: vi.fn()
+    getStorageStats: vi.fn(),
+    getWorkspaceRootPath: vi.fn(() => '/workspace')
 };
 
 describe('ConfigurationManager', () => {
@@ -58,6 +60,8 @@ describe('ConfigurationManager', () => {
             expect(defaultConfig.maxNodesPerGraph).toBe(100);
             expect(defaultConfig.enableBackup).toBe(true);
             expect(defaultConfig.backupInterval).toBe(300000);
+            expect(defaultConfig.aiEndpointAutoStart).toBe(false);
+            expect(defaultConfig.aiEndpointPort).toBe(4783);
             expect(defaultConfig.rootSymbolPreferences).toEqual({
                 enableHolidayThemes: true,
                 enableSeasonalThemes: true,
@@ -157,10 +161,24 @@ describe('ConfigurationManager', () => {
                 { autoSave: 'true' as any },
                 { autoLoadLastGraph: 1 as any },
                 { autoOpenPreviewOnStartup: 'yes' as any },
-                { enableBackup: null as any }
+                { enableBackup: null as any },
+                { aiEndpointAutoStart: 'yes' as any }
             ];
 
             for (const config of invalidConfigs) {
+                expect(configManager.validateConfiguration(config)).toBe(false);
+            }
+        });
+
+        it('should reject invalid aiEndpointPort', () => {
+            const invalidPorts = [
+                { aiEndpointPort: -1 },
+                { aiEndpointPort: 70000 },
+                { aiEndpointPort: 10.5 },
+                { aiEndpointPort: '8080' as any }
+            ];
+
+            for (const config of invalidPorts) {
                 expect(configManager.validateConfiguration(config)).toBe(false);
             }
         });

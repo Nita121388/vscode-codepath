@@ -29,7 +29,9 @@ export class ConfigurationManager implements IConfigurationManager {
             maxNodesPerGraph: 100,
             enableBackup: true,
             backupInterval: 300000, // 5 minutes
-            rootSymbolPreferences: this.getDefaultRootSymbolPreferences()
+            rootSymbolPreferences: this.getDefaultRootSymbolPreferences(),
+            aiEndpointAutoStart: false,
+            aiEndpointPort: 4783
         };
     }
 
@@ -78,6 +80,16 @@ export class ConfigurationManager implements IConfigurationManager {
         const maxNodesPerGraph = config.get<number>('maxNodesPerGraph');
         if (maxNodesPerGraph !== undefined) {
             vscodeConfig.maxNodesPerGraph = maxNodesPerGraph;
+        }
+
+        const aiEndpointAutoStart = config.get<boolean>('aiEndpointAutoStart');
+        if (aiEndpointAutoStart !== undefined) {
+            vscodeConfig.aiEndpointAutoStart = aiEndpointAutoStart;
+        }
+
+        const aiEndpointPort = config.get<number>('aiEndpointPort');
+        if (aiEndpointPort !== undefined) {
+            vscodeConfig.aiEndpointPort = aiEndpointPort;
         }
 
         return vscodeConfig;
@@ -256,20 +268,22 @@ export class ConfigurationManager implements IConfigurationManager {
             const isFullConfig = this.isFullConfiguration(config);
             
             if (isFullConfig) {
-                const requiredKeys: (keyof Configuration)[] = [
-                    'defaultView',
-                    'autoSave',
-                    'autoLoadLastGraph',
-                    'previewRefreshInterval',
-                    'maxNodesPerGraph',
-                    'enableBackup',
-                    'backupInterval',
-                    'rootSymbolPreferences'
-                ];
+            const requiredKeys: (keyof Configuration)[] = [
+                'defaultView',
+                'autoSave',
+                'autoLoadLastGraph',
+                'previewRefreshInterval',
+                'maxNodesPerGraph',
+                'enableBackup',
+                'backupInterval',
+                'rootSymbolPreferences',
+                'aiEndpointAutoStart',
+                'aiEndpointPort'
+            ];
 
-                for (const key of requiredKeys) {
-                    if (!(key in config)) {
-                        console.warn(`Missing required configuration key: ${key}`);
+            for (const key of requiredKeys) {
+                if (!(key in config)) {
+                    console.warn(`Missing required configuration key: ${key}`);
                         return false;
                     }
                 }
@@ -333,6 +347,18 @@ export class ConfigurationManager implements IConfigurationManager {
                 }
             }
 
+            if ('aiEndpointAutoStart' in config) {
+                if (!this.validateBoolean(config.aiEndpointAutoStart, 'aiEndpointAutoStart')) {
+                    return false;
+                }
+            }
+
+            if ('aiEndpointPort' in config) {
+                if (!this.validateAiEndpointPort(config.aiEndpointPort)) {
+                    return false;
+                }
+            }
+
             return true;
         } catch (error) {
             console.warn('Configuration validation error:', error);
@@ -352,7 +378,9 @@ export class ConfigurationManager implements IConfigurationManager {
             'maxNodesPerGraph',
             'enableBackup',
             'backupInterval',
-            'rootSymbolPreferences'
+            'rootSymbolPreferences',
+            'aiEndpointAutoStart',
+            'aiEndpointPort'
         ];
 
         return requiredKeys.every(key => key in config);
@@ -461,6 +489,28 @@ export class ConfigurationManager implements IConfigurationManager {
 
         if (value > 3600000) { // Maximum 1 hour
             console.warn('backupInterval cannot exceed 3600000ms (1 hour)');
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Validates AI endpoint port property
+     */
+    private validateAiEndpointPort(value: any): value is number {
+        if (typeof value !== 'number') {
+            console.warn('aiEndpointPort must be a number');
+            return false;
+        }
+
+        if (!Number.isInteger(value)) {
+            console.warn('aiEndpointPort must be an integer');
+            return false;
+        }
+
+        if (value < 0 || value > 65535) {
+            console.warn('aiEndpointPort must be between 0 and 65535');
             return false;
         }
 
@@ -628,6 +678,18 @@ export class ConfigurationManager implements IConfigurationManager {
                 max: 3600000,
                 default: 300000,
                 description: 'Backup interval in milliseconds'
+            },
+            aiEndpointAutoStart: {
+                type: 'boolean',
+                default: false,
+                description: '自动在扩展激活时启动 AI 通信端口'
+            },
+            aiEndpointPort: {
+                type: 'number',
+                min: 0,
+                max: 65535,
+                default: 4783,
+                description: 'AI 通信端口监听的本地端口号（0 表示随机端口）'
             },
             rootSymbolPreferences: {
                 type: 'object',

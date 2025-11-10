@@ -206,6 +206,7 @@ describe('WebviewManager', () => {
                         expect.objectContaining({ label: '📋 复制' }),
                         expect.objectContaining({ label: '📄 粘贴' }),
                         expect.objectContaining({ label: '✂️ 剪切' }),
+                        expect.objectContaining({ label: '📁 复制文件路径' }),
                         expect.objectContaining({ label: '⬆️ 上移' }),
                         expect.objectContaining({ label: '⬇️ 下移' }),
                         expect.objectContaining({ label: '⚙️ 打开设置' })
@@ -328,6 +329,31 @@ describe('WebviewManager', () => {
                 // Verify
                 expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
                 expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.cutNode');
+            });
+
+            it('should execute copy file path action with node', async () => {
+                const mockNodeSwitchCallback = vi.fn();
+                webviewManager.setNodeSwitchCallback(mockNodeSwitchCallback);
+                (vscode.window.showWarningMessage as Mock).mockClear();
+                (vscode.commands.executeCommand as Mock).mockClear();
+
+                await (webviewManager as any).executePreviewAction('📁 复制文件路径', 'test-node-id');
+
+                expect(mockNodeSwitchCallback).toHaveBeenCalledWith('test-node-id');
+                expect(vscode.commands.executeCommand).toHaveBeenCalledWith('codepath.copyNodeFilePath');
+                expect(vscode.window.showWarningMessage).not.toHaveBeenCalled();
+            });
+
+            it('should warn when copying file path without node', async () => {
+                (vscode.window.showWarningMessage as Mock).mockClear();
+                (vscode.commands.executeCommand as Mock).mockClear();
+
+                await (webviewManager as any).executePreviewAction('📁 复制文件路径', null);
+
+                expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(expect.stringContaining('无法复制文件路径'));
+                const copyPathCalls = (vscode.commands.executeCommand as Mock).mock.calls
+                    .filter((call: any[]) => call[0] === 'codepath.copyNodeFilePath');
+                expect(copyPathCalls.length).toBe(0);
             });
 
             it('should execute move up action with node', async () => {
