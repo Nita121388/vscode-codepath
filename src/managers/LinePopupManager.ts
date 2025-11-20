@@ -457,7 +457,8 @@ export class LinePopupManager implements vscode.Disposable, vscode.CodeActionPro
             'const autoResize = (input) => { if (!input) return; input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; };' +
             'const buildLines = (text, startLine) => {' +
             '  if (!linesContainer) return;' +
-            '  const lines = (text || "").split("\\n");' +
+            '  const normalized = (text || "").replace(/\\r\\n/g, "\\n").replace(/\\r/g, "\\n");' +
+            '  const lines = normalized.split("\\n");' +
             '  linesContainer.innerHTML = "";' +
             '  lines.forEach((line, index) => {' +
             '    const row = document.createElement("div");' +
@@ -480,7 +481,12 @@ export class LinePopupManager implements vscode.Disposable, vscode.CodeActionPro
             'const collectText = () => {' +
             '  if (!linesContainer) return "";' +
             '  const inputs = Array.from(linesContainer.querySelectorAll(".code-line-input"));' +
-            '  const parts = inputs.map(input => (input.value || "").replace(/\\r\\n/g, "\\n"));' +
+            '  const parts = inputs.map(input => {' +
+            '    const val = input.value || "";' +
+            '    return val.replace(/\\r\\n/g, "\\n").replace(/\\r/g, "\\n");' +
+            '  });' +
+            '  if (parts.length === 0) return "";' +
+            '  if (parts.length === 1) return parts[0];' +
             '  return parts.join("\\n");' +
             '};' +
             'window.addEventListener("message", (event) => {' +
