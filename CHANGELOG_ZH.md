@@ -7,13 +7,39 @@
 
 ## [未发布]
 
+## [0.2.6] - 2025-11-20
+
 ### 新增
-- 新增 `codepath.generateGraphFromBlueprint` 命令，支持通过快捷键 `Ctrl+Shift+A` 和状态栏入口导入 AI 生成的蓝图 JSON。
-- GraphManager 增加蓝图校验与持久化流程，一键生成可用的 CodePath。
-- 新增本地 AI 通信端点，可通过命令启停并支持自动启动配置。
-- 状态栏图标更新为路标 🪧，更直观地提示快捷菜单入口。
-- 新增 `codepath.showSelectionPopup` 命令：选中代码后可通过 VS Code 黄色灯泡 Code Action 和 Code Path 菜单打开行内容弹窗，无需 Ctrl+点击即可在自动换行弹窗中查看/编辑，支持 Ctrl+Enter 快速保存。
-- 行内容弹窗现在带有原始行号列，并且代码区域保持自动换行，可在有限宽度内查看长行且不会丢失真实行号信息。
+- **行内容编辑弹窗** - 新增 `codepath.showSelectionPopup` 命令，集成 Code Action（灯泡）菜单
+  - 选中任意代码（单行或多行）后可通过灯泡菜单或 Code Path 右键菜单访问
+  - 自动换行的编辑弹窗显示原始行号，方便参考
+  - Ctrl+Enter 快速保存修改
+  - 版本冲突检测和文档变更处理
+  - 无需依赖 Ctrl+点击即可快速编辑
+
+### 变更
+- 状态栏图标更新为路标 🪧，提升快捷菜单的视觉可发现性
+
+### 修复
+- 修复弹窗编辑器中的换行符规范化问题，防止编辑内容之间出现额外空行
+- 确保编辑/保存周期中 Windows 风格（\r\n）和 Unix 风格（\n）换行符的一致处理
+
+### 技术改进
+- 添加 LinePopupManager，提供基于 webview 的逐行编辑 UI
+- 增强 vscode mock 以更好地支持 LinePopupManager 测试
+- 改进扩展生命周期与 LinePopupManager 的集成
+
+## [0.2.5] - 2025-11-20
+
+### 新增
+- AI 集成功能（当前在 UI 中隐藏，可重新启用）
+  - `codepath.generateGraphFromBlueprint` 命令，用于导入 AI 生成的 JSON 蓝图
+  - GraphManager 蓝图管道，带验证功能，可持久化 AI 生成的 CodePath 图谱
+  - 可选的本地 AI 端点，带启动/停止命令和自动启动配置
+  - AIEndpointManager 为外部 AI 工具提供 HTTP 服务器
+
+### 变更
+- 从 VSIX 包中排除开发文档文件，使发布包更简洁
 
 ## [0.2.3] - 2025-10-29
 

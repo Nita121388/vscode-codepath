@@ -7,13 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2025-11-20
+
 ### Added
-- `codepath.generateGraphFromBlueprint` command for importing AI generated JSON blueprints (Ctrl+Shift+A shortcut and status bar entry).
-- GraphManager blueprint pipeline with validation to persist AI generated CodePath graphs.
-- Optional local AI endpoint with start/stop commands and configuration for auto-start.
-- Road sign 🪧 status bar icon for clearer discoverability of the quick menu.
-- `codepath.showSelectionPopup` command now exposes a yellow Code Action light-bulb and Code Path menu entry so any selection (single or multi-line) can be edited inside a wrap-friendly popup without relying on Ctrl+Click; Ctrl+Enter still saves instantly.
-- Line popup editor now displays original line numbers alongside the auto-wrapping code view, keeping numbering stable even when long lines wrap inside the modal.
+- **Line Content Popup Editor** - New `codepath.showSelectionPopup` command with Code Action (lightbulb) integration
+  - Select any code (single or multi-line) and access via lightbulb menu or Code Path context menu
+  - Auto-wrapping editor popup displays original line numbers for easy reference
+  - Ctrl+Enter saves changes instantly
+  - Version conflict detection and document change handling
+  - No need to rely on Ctrl+Click for quick edits
+
+### Changed
+- Status bar icon updated to road sign 🪧 for better visual discoverability of the quick menu
+
+### Fixed
+- Line break normalization in popup editor to prevent extra blank lines between edited content
+- Consistent handling of Windows-style (\r\n) and Unix-style (\n) line breaks throughout edit/save cycle
+
+### Technical
+- Added LinePopupManager with webview-based per-line editing UI
+- Enhanced vscode mock for better LinePopupManager testing support
+- Improved extension lifecycle integration with LinePopupManager
+
+## [0.2.5] - 2025-11-20
+
+### Added
+- AI integration features (currently hidden in UI, can be re-enabled)
+  - `codepath.generateGraphFromBlueprint` command for importing AI generated JSON blueprints
+  - GraphManager blueprint pipeline with validation to persist AI generated CodePath graphs
+  - Optional local AI endpoint with start/stop commands and configuration for auto-start
+  - AIEndpointManager provides HTTP server for external AI tools
+
+### Changed
+- Development documentation files excluded from VSIX package for cleaner distribution
 
 ## [0.2.3] - 2025-10-29
 
