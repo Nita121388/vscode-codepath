@@ -23,6 +23,7 @@ import { StatusBarManager } from './managers/StatusBarManager';
 import { WebviewManager } from './managers/WebviewManager';
 import { IntegrationManager } from './managers/IntegrationManager';
 import { AIEndpointManager } from './managers/AIEndpointManager';
+import { LinePopupManager } from './managers/LinePopupManager';
 import { PreviewSidebarProvider } from './views/PreviewSidebarProvider';
 import { RootSymbolService } from './services/RootSymbolService';
 import { CodePathError } from './types/errors';
@@ -52,6 +53,8 @@ interface ExtensionState {
     commandManager?: CommandManager;
     /** Status bar manager for status bar integration */
     statusBarManager?: StatusBarManager;
+    /** Line popup manager for inline editing experience */
+    linePopupManager?: LinePopupManager;
     /** AI endpoint manager for external agent integration */
     aiEndpointManager?: AIEndpointManager;
     /** VS Code extension context */
@@ -208,6 +211,7 @@ async function initializeManagers(context: vscode.ExtensionContext): Promise<voi
 
         // Initialize status bar manager
         extensionState.statusBarManager = new StatusBarManager();
+        extensionState.linePopupManager = new LinePopupManager(context);
 
         // Initialize integration manager to coordinate all components
         extensionState.integrationManager = new IntegrationManager(
@@ -255,6 +259,9 @@ async function initializeManagers(context: vscode.ExtensionContext): Promise<voi
             }
         );
         extensionState.disposables.push(extensionState.aiEndpointManager);
+        if (extensionState.linePopupManager) {
+            extensionState.disposables.push(extensionState.linePopupManager);
+        }
 
         console.log('CodePath: Core managers initialized');
     } catch (error) {
@@ -562,6 +569,7 @@ async function cleanup(): Promise<void> {
         extensionState.commandManager = undefined;
         extensionState.integrationManager = undefined;
         extensionState.statusBarManager = undefined;
+        extensionState.linePopupManager = undefined;
         extensionState.webviewManager = undefined;
         extensionState.previewManager = undefined;
         extensionState.nodeManager = undefined;

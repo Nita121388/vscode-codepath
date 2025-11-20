@@ -141,7 +141,7 @@ export class StatusBarManager implements IStatusBarManager {
         const { currentGraph, nodeCount } = this.statusInfo;
 
         if (currentGraph) {
-            this.graphInfoItem.text = `🧭 ${currentGraph} (${nodeCount} nodes)`;
+            this.graphInfoItem.text = `🪧 ${currentGraph} (${nodeCount} nodes)`;
             this.graphInfoItem.tooltip = this.createMarkdownTooltip(
                 `**当前 CodePath：** ${currentGraph}\n\n` +
                 `**节点数：** ${nodeCount}\n\n` +
@@ -153,7 +153,7 @@ export class StatusBarManager implements IStatusBarManager {
                 `- 刷新预览等更多操作`
             );
         } else {
-            this.graphInfoItem.text = '🧭 未选择 CodePath';
+            this.graphInfoItem.text = '🪧 未选择 CodePath';
             this.graphInfoItem.tooltip = this.createMarkdownTooltip(
                 `**暂无活动的 CodePath**\n\n` +
                 `点击打开快捷菜单：\n` +

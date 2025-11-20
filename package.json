@@ -100,6 +100,11 @@
         "category": "Code Path Marker"
       },
       {
+        "command": "codepath.showSelectionPopup",
+        "title": "🪧 行内容弹窗编辑",
+        "category": "Code Path Marker"
+      },
+      {
         "command": "codepath.copyNodeFilePath",
         "title": "复制节点文件路径",
         "category": "Code Path Marker"
@@ -256,6 +261,11 @@
         "command": "codepath.copyCodeContext",
         "when": "editorHasSelection",
         "group": "2_edit@4"
+      },
+      {
+        "command": "codepath.showSelectionPopup",
+        "when": "codepath.hasSelectionForPopup",
+        "group": "2_edit@4.5"
       },
       {
         "command": "codepath.copyNodeFilePath",
