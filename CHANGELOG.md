@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `codepath.generateGraphFromBlueprint` command for importing AI generated JSON blueprints (Ctrl+Shift+A shortcut and status bar entry).
+- GraphManager blueprint pipeline with validation to persist AI generated CodePath graphs.
+- Optional local AI endpoint with start/stop commands and configuration for auto-start.
+- Road sign 🪧 status bar icon for clearer discoverability of the quick menu.
+- `codepath.showSelectionPopup` command now exposes a yellow Code Action light-bulb and Code Path menu entry so any selection (single or multi-line) can be edited inside a wrap-friendly popup without relying on Ctrl+Click; Ctrl+Enter still saves instantly.
+- Line popup editor now displays original line numbers alongside the auto-wrapping code view, keeping numbering stable even when long lines wrap inside the modal.
+
 ## [0.2.3] - 2025-10-29
 
 ### Fixed

@@ -7,6 +7,14 @@
 
 ## [未发布]
 
+### 新增
+- 新增 `codepath.generateGraphFromBlueprint` 命令，支持通过快捷键 `Ctrl+Shift+A` 和状态栏入口导入 AI 生成的蓝图 JSON。
+- GraphManager 增加蓝图校验与持久化流程，一键生成可用的 CodePath。
+- 新增本地 AI 通信端点，可通过命令启停并支持自动启动配置。
+- 状态栏图标更新为路标 🪧，更直观地提示快捷菜单入口。
+- 新增 `codepath.showSelectionPopup` 命令：选中代码后可通过 VS Code 黄色灯泡 Code Action 和 Code Path 菜单打开行内容弹窗，无需 Ctrl+点击即可在自动换行弹窗中查看/编辑，支持 Ctrl+Enter 快速保存。
+- 行内容弹窗现在带有原始行号列，并且代码区域保持自动换行，可在有限宽度内查看长行且不会丢失真实行号信息。
+
 ## [0.2.3] - 2025-10-29
 
 ### 修复
