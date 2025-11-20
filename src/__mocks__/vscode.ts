@@ -42,6 +42,8 @@ type OutputChannel = Disposable & {
     clear: () => void;
 };
 
+const defaultWorkspaceFolder = process.platform === 'win32' ? 'C:\\test\\workspace' : '/test/workspace';
+
 const createDisposable = (): Disposable => ({ dispose: vi.fn() });
 const createOutputChannel = (): OutputChannel => ({
     append: vi.fn(),
@@ -55,8 +57,15 @@ const createOutputChannel = (): OutputChannel => ({
 
 export const workspace = {
     workspaceFolders: [{
-        uri: { fsPath: process.platform === 'win32' ? 'C:\\test\\workspace' : '/test/workspace' }
+        uri: { fsPath: defaultWorkspaceFolder }
     }],
+    asRelativePath: vi.fn((resource: any) => {
+        const fsPath = typeof resource === 'string' ? resource : resource?.fsPath || '';
+        if (fsPath.startsWith(defaultWorkspaceFolder)) {
+            return fsPath.slice(defaultWorkspaceFolder.length + 1);
+        }
+        return fsPath;
+    }),
     getConfiguration: vi.fn((_section?: string) => ({
         get: vi.fn(<T>(_key: string, _defaultValue?: T): T | undefined => _defaultValue),
         update: vi.fn((_key: string, _value: any) => Promise.resolve()),
@@ -172,6 +181,7 @@ export const window = {
         return Promise.resolve(mockEditor);
     }),
     visibleTextEditors: [] as any[],
+    activeTextEditor: undefined as any,
     createStatusBarItem: vi.fn(() => ({
         text: '',
         tooltip: '',
@@ -192,8 +202,12 @@ export const window = {
         visible: true
     })),
     createOutputChannel: vi.fn(() => createOutputChannel()),
+    createTextEditorDecorationType: vi.fn(() => ({ dispose: vi.fn() })),
     registerWebviewViewProvider: vi.fn((..._args: any[]) => createDisposable()),
-    withProgress: vi.fn((_options: any, task: () => Promise<any>) => task())
+    withProgress: vi.fn((_options: any, task: () => Promise<any>) => task()),
+    onDidChangeTextEditorSelection: vi.fn(() => createDisposable()),
+    onDidChangeActiveTextEditor: vi.fn(() => createDisposable()),
+    onDidChangeVisibleTextEditors: vi.fn(() => createDisposable())
 };
 
 export const commands = {
@@ -278,6 +292,15 @@ export class Range {
         this.start = start;
         this.end = end;
     }
+
+    isEqual(other: Range): boolean {
+        return (
+            this.start.line === other.start.line &&
+            this.start.character === other.start.character &&
+            this.end.line === other.end.line &&
+            this.end.character === other.end.character
+        );
+    }
 }
 
 export class Selection extends Range {
@@ -288,6 +311,10 @@ export class Selection extends Range {
         super(anchor, active);
         this.anchor = anchor;
         this.active = active;
+    }
+
+    get isEmpty(): boolean {
+        return this.anchor.line === this.active.line && this.anchor.character === this.active.character;
     }
 }
 
@@ -371,6 +398,47 @@ export class MarkdownString {
 
 // FileSystemError is already exported as a class above
 
+export const languages = {
+    registerDocumentLinkProvider: vi.fn(() => createDisposable()),
+    registerCodeActionsProvider: vi.fn(() => createDisposable())
+};
+
+export class DocumentLink {
+    public range: Range;
+    public target?: any;
+    public tooltip?: string;
+
+    constructor(range: Range, target?: any) {
+        this.range = range;
+        this.target = target;
+    }
+}
+
+export class CodeActionKind {
+    public value: string;
+
+    constructor(value: string) {
+        this.value = value;
+    }
+
+    contains(kind: CodeActionKind): boolean {
+        return kind.value.indexOf(this.value) === 0;
+    }
+
+    static QuickFix = new CodeActionKind('quickfix');
+}
+
+export class CodeAction {
+    public title: string;
+    public kind?: CodeActionKind;
+    public command?: { title: string; command: string };
+
+    constructor(title: string, kind?: CodeActionKind) {
+        this.title = title;
+        this.kind = kind;
+    }
+}
+
 // Default export for compatibility
 export default {
     workspace,
@@ -386,5 +454,9 @@ export default {
     Position,
     Range,
     Selection,
-    TextEditorRevealType
+    TextEditorRevealType,
+    languages,
+    DocumentLink,
+    CodeActionKind,
+    CodeAction
 };
