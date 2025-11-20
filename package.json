@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -189,16 +189,16 @@
         "title": "Debug Graph State",
         "category": "Code Path Marker"
       },
-        {
-          "command": "codepath.previewGraphFile",
-          "title": "Preview Code Path",
-          "category": "Code Path Marker"
-        },
-        {
-          "command": "codepath.shareGraphFile",
-          "title": "Share Code Path",
-          "category": "Code Path Marker"
-        }
+      {
+        "command": "codepath.previewGraphFile",
+        "title": "Preview Code Path",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.shareGraphFile",
+        "title": "Share Code Path",
+        "category": "Code Path Marker"
+      }
     ],
     "submenus": [
       {
@@ -257,21 +257,21 @@
           "when": "false",
           "group": "2_edit@3"
         },
-      {
-        "command": "codepath.copyCodeContext",
-        "when": "editorHasSelection",
-        "group": "2_edit@4"
-      },
-      {
-        "command": "codepath.showSelectionPopup",
-        "when": "codepath.hasSelectionForPopup",
-        "group": "2_edit@4.5"
-      },
-      {
-        "command": "codepath.copyNodeFilePath",
-        "when": "false",
-        "group": "2_edit@5"
-      },
+        {
+          "command": "codepath.copyCodeContext",
+          "when": "editorHasSelection",
+          "group": "2_edit@4"
+        },
+        {
+          "command": "codepath.showSelectionPopup",
+          "when": "codepath.hasSelectionForPopup",
+          "group": "2_edit@4.5"
+        },
+        {
+          "command": "codepath.copyNodeFilePath",
+          "when": "false",
+          "group": "2_edit@5"
+        },
         {
           "command": "codepath.moveNodeUp",
           "when": "false",
