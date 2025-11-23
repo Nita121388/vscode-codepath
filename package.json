@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
