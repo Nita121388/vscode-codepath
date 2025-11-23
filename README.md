@@ -239,6 +239,7 @@ export async function hashPassword(password) {  // 👈 6. Select function defin
 - **Text Visualization** with instant refresh and hierarchical view
 - **Multiple Graph Management** with quick status bar menu
 - **Line Content Popup Editor** - Open auto-wrapping editor popup via lightbulb or context menu for multi-line editing with preserved line numbers
+- **Lightbulb Quick Actions** - Access both the 🪧 Line Content Popup Editor and 📋 Copy Code Context directly from the editor lightbulb (Quick Fix) menu to quickly edit or copy sharable code context with file paths and line ranges
 - **Smart Navigation** with fuzzy matching and location tracking
 - **Auto Location Update** - Intelligent code tracking with multi-strategy search
 - **Tree Fork Support** - Track multiple execution paths for the same code

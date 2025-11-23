@@ -592,7 +592,17 @@ export class LinePopupManager implements vscode.Disposable, vscode.CodeActionPro
             title: '🪧 行内容弹窗编辑',
             command: 'codepath.showSelectionPopup'
         };
-        return [action];
+        const actions: vscode.CodeAction[] = [];
+        actions.push(action);
+
+        const copyContextAction = new vscode.CodeAction('📋 Copy Code Context', vscode.CodeActionKind.QuickFix);
+        copyContextAction.command = {
+            title: '📋 Copy Code Context',
+            command: 'codepath.copyCodeContext'
+        };
+        actions.push(copyContextAction);
+
+        return actions;
     }
 
     public static normalizeSelection(_document: vscode.TextDocument, selection: vscode.Selection): vscode.Range | null {

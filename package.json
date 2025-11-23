@@ -96,7 +96,7 @@
       },
       {
         "command": "codepath.copyCodeContext",
-        "title": "Copy Code Context",
+        "title": "📋 Copy Code Context",
         "category": "Code Path Marker"
       },
       {

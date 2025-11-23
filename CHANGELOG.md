@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ctrl+Enter saves changes instantly
   - Version conflict detection and document change handling
   - No need to rely on Ctrl+Click for quick edits
+ - **📋 Copy Code Context in lightbulb menu** - The existing `codepath.copyCodeContext` command is now available directly from the editor lightbulb (Quick Fix) menu alongside the Line Content Popup Editor, making it easier to copy sharable code snippets with file path and line ranges
 
 ### Changed
 - Status bar icon updated to road sign 🪧 for better visual discoverability of the quick menu
