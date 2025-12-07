@@ -198,6 +198,31 @@
         "command": "codepath.shareGraphFile",
         "title": "Share Code Path",
         "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.backupResource",
+        "title": "快速备份文件/文件夹",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.restoreResourceFromLatestBackup",
+        "title": "从最新备份还原文件/文件夹",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.keepLatestBackups",
+        "title": "备份管理：仅保留每个资源最新备份",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.clearAllBackups",
+        "title": "备份管理：清空所有备份",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.restoreResourceFromBackupFile",
+        "title": "备份：还原到此备份版本",
+        "category": "Code Path Marker"
       }
     ],
     "submenus": [
@@ -291,6 +316,31 @@
           "command": "codepath.shareGraphFile",
           "when": "resourcePath =~ /\\.codepath.*\\.json$/",
           "group": "4_file@2"
+        },
+        {
+          "command": "codepath.backupResource",
+          "when": "resourceScheme == 'file' && resourcePath !~ /\\.codepath.*file-backups.*/",
+          "group": "5_backup@1"
+        },
+        {
+          "command": "codepath.restoreResourceFromLatestBackup",
+          "when": "resourceScheme == 'file' && resourcePath !~ /\\.codepath.*file-backups.*/",
+          "group": "5_backup@2"
+        },
+        {
+          "command": "codepath.restoreResourceFromBackupFile",
+          "when": "resourcePath =~ /\\.codepath.*file-backups.*\\.bak$/",
+          "group": "5_backup@3"
+        },
+        {
+          "command": "codepath.keepLatestBackups",
+          "when": "true",
+          "group": "5_backup@4"
+        },
+        {
+          "command": "codepath.clearAllBackups",
+          "when": "true",
+          "group": "5_backup@5"
         }
       ]
     },

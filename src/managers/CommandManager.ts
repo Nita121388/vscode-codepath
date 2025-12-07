@@ -6,6 +6,7 @@ import { IntegrationManager } from './IntegrationManager';
 import { ClipboardManager } from './ClipboardManager';
 import { NodeOrderManager } from './NodeOrderManager';
 import { FeedbackManager } from './FeedbackManager';
+import { FileBackupManager } from './FileBackupManager';
 import { AIGraphBlueprint } from '../types';
 import { CodePathError } from '../types/errors';
 import { executeCommandSafely } from '../utils/vscodeHelpers';
@@ -29,12 +30,14 @@ export class CommandManager {
     private clipboardManager: ClipboardManager;
     private nodeOrderManager: NodeOrderManager;
     private feedbackManager: FeedbackManager;
+    private fileBackupManager: FileBackupManager;
     private disposables: vscode.Disposable[] = [];
 
     constructor(
         graphManager: GraphManager,
         nodeManager: NodeManager,
-        integrationManager: IntegrationManager
+        integrationManager: IntegrationManager,
+        fileBackupManager?: FileBackupManager
     ) {
         this.graphManager = graphManager;
         this.nodeManager = nodeManager;
@@ -42,6 +45,7 @@ export class CommandManager {
         this.clipboardManager = new ClipboardManager(nodeManager, graphManager);
         this.nodeOrderManager = new NodeOrderManager(nodeManager, graphManager);
         this.feedbackManager = new FeedbackManager();
+        this.fileBackupManager = fileBackupManager || new FileBackupManager();
     }
 
     /**
@@ -89,6 +93,14 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.debugGraphState', this.handleDebugGraphState.bind(this));
         this.registerCommand(context, 'codepath.previewGraphFile', this.handlePreviewGraphFile.bind(this));
         this.registerCommand(context, 'codepath.shareGraphFile', this.handleShareGraphFile.bind(this));
+
+        // 文件/文件夹备份相关命令
+        this.registerCommand(context, 'codepath.backupResource', this.handleBackupResource.bind(this));
+        this.registerCommand(context, 'codepath.restoreResourceFromLatestBackup', this.handleRestoreResourceFromLatestBackup.bind(this));
+        this.registerCommand(context, 'codepath.restoreResourceFromBackupFile', this.handleRestoreResourceFromBackupFile.bind(this));
+        this.registerCommand(context, 'codepath.keepLatestBackups', this.handleKeepLatestBackups.bind(this));
+        this.registerCommand(context, 'codepath.clearAllBackups', this.handleClearAllBackups.bind(this));
+
         this.registerCommand(context, 'codepath.copyCodeContext', this.handleCopyCodeContext.bind(this));
 
         // Initialize context state
@@ -985,6 +997,125 @@ export class CommandManager {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             vscode.window.showErrorMessage(`Failed to share graph: ${errorMessage}`);
         }
+    }
+
+    /**
+     * 处理从资源管理器或编辑器快速备份文件/文件夹
+     */
+    private async handleBackupResource(uri?: vscode.Uri): Promise<void> {
+        try {
+            const targetUri = this.resolveBackupTargetUri(uri);
+            if (!targetUri) {
+                this.showWarning('请先在资源管理器或编辑器中选择要备份的文件或文件夹');
+                return;
+            }
+
+            const note = await vscode.window.showInputBox({
+                prompt: '请输入本次备份备注（可留空）',
+                placeHolder: '例如：重构前版本、测试前快照等'
+            });
+
+            await this.fileBackupManager.backupResource(targetUri.fsPath, note ?? undefined);
+
+            this.showSuccess('已创建文件备份', `路径: ${targetUri.fsPath}`);
+        } catch (error) {
+            this.handleError('创建文件备份', error);
+        }
+    }
+
+    /**
+     * 处理从最新备份还原文件/文件夹
+     */
+    private async handleRestoreResourceFromLatestBackup(uri?: vscode.Uri): Promise<void> {
+        try {
+            const targetUri = this.resolveBackupTargetUri(uri);
+            if (!targetUri) {
+                this.showWarning('请先在资源管理器或编辑器中选择需要还原的文件或文件夹');
+                return;
+            }
+
+            await this.fileBackupManager.restoreResourceFromLatestBackup(targetUri.fsPath);
+
+            this.showSuccess('已从最新备份还原', `路径: ${targetUri.fsPath}`);
+        } catch (error) {
+            this.handleError('从备份还原文件或文件夹', error);
+        }
+    }
+
+    /**
+     * 处理：在备份文件/目录上“还原到此备份版本”
+     */
+    private async handleRestoreResourceFromBackupFile(uri?: vscode.Uri): Promise<void> {
+        try {
+            if (!uri || uri.scheme !== 'file') {
+                this.showWarning('请在 .codepath/file-backups 中选择需要还原的备份文件或目录');
+                return;
+            }
+
+            await this.fileBackupManager.restoreResourceFromBackupFile(uri.fsPath);
+
+            this.showSuccess('已从此备份版本还原', `备份路径: ${uri.fsPath}`);
+        } catch (error) {
+            this.handleError('从指定备份版本还原文件或文件夹', error);
+        }
+    }
+
+    /**
+     * 处理全局备份清理：每个资源只保留一份最新备份
+     */
+    private async handleKeepLatestBackups(): Promise<void> {
+        try {
+            const result = await this.fileBackupManager.keepLatestBackups();
+
+            if (result.deletedRecords === 0) {
+                this.showInfo('当前没有需要清理的旧备份');
+            } else {
+                this.showSuccess(
+                    `已清理 ${result.deletedRecords} 条旧备份`,
+                    `实际删除备份文件/目录数量: ${result.deletedFiles}`
+                );
+            }
+        } catch (error) {
+            this.handleError('清理旧备份', error);
+        }
+    }
+
+    /**
+     * 处理清空所有文件备份
+     */
+    private async handleClearAllBackups(): Promise<void> {
+        try {
+            const confirmation = await vscode.window.showWarningMessage(
+                '确定要删除所有 CodePath 文件备份吗？此操作不可撤销。',
+                { modal: true },
+                '确定删除'
+            );
+
+            if (confirmation !== '确定删除') {
+                return;
+            }
+
+            await this.fileBackupManager.clearAllBackups();
+            this.showSuccess('所有 CodePath 文件备份已清空');
+        } catch (error) {
+            this.handleError('清空所有文件备份', error);
+        }
+    }
+
+    /**
+     * 根据当前上下文解析备份目标 URI
+     */
+    private resolveBackupTargetUri(uri?: vscode.Uri): vscode.Uri | null {
+        if (uri && uri.scheme === 'file') {
+            return uri;
+        }
+
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor && activeEditor.document.uri.scheme === 'file') {
+            return activeEditor.document.uri;
+        }
+
+        return null;
     }
 
     /**

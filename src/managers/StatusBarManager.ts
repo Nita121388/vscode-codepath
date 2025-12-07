@@ -4,7 +4,8 @@ import { IStatusBarManager, StatusBarInfo } from '../interfaces/IStatusBarManage
 type StatusMenuItem = vscode.QuickPickItem & { command: string };
 
 /**
- * StatusBarManager 负责在 VS Code 状态栏展示 CodePath 的关键信息，并提供快捷菜单入口
+ * StatusBarManager 负责在 VS Code 状态栏展示 CodePath 的关键信息，
+ * 并提供一组常用操作的快捷菜单（包括备份管理入口）。
  */
 export class StatusBarManager implements IStatusBarManager {
     private graphInfoItem: vscode.StatusBarItem;
@@ -27,7 +28,7 @@ export class StatusBarManager implements IStatusBarManager {
 
         this.menuItems = [
             {
-                label: '🆕 创建 CodePath',
+                label: '🏗️ 创建 CodePath',
                 description: '创建一个新的 CodePath',
                 detail: 'Create New CodePath',
                 command: 'codepath.createGraph'
@@ -50,7 +51,7 @@ export class StatusBarManager implements IStatusBarManager {
                 detail: 'Import CodePath',
                 command: 'codepath.importGraph'
             },
-            // AI Features - Temporarily disabled for future consideration
+            // AI 功能入口保留占位，暂不开放
             // {
             //     label: '🤖 AI 生成 CodePath',
             //     description: '使用 AI 蓝图快速创建 CodePath',
@@ -65,9 +66,34 @@ export class StatusBarManager implements IStatusBarManager {
             },
             {
                 label: '👁️ 刷新和预览',
-                description: '刷新当前预览，必要时自动打开预览面板',
+                description: '刷新当前预览，需要时自动打开预览面板',
                 detail: 'Refresh preview and reveal panel when hidden',
                 command: 'codepath.refreshPreview'
+            },
+            // 备份相关快捷入口
+            {
+                label: '💾 快速备份当前文件/文件夹',
+                description: '对当前活动文件或资源管理器选中的文件/文件夹做一次备份',
+                detail: 'Quick backup for current file/folder',
+                command: 'codepath.backupResource'
+            },
+            {
+                label: '♻️ 从最新备份还原当前文件/文件夹',
+                description: '使用该文件/文件夹的最新备份版本进行还原（还原前自动备份当前状态）',
+                detail: 'Restore current file/folder from latest backup',
+                command: 'codepath.restoreResourceFromLatestBackup'
+            },
+            {
+                label: '🧹 备份管理：仅保留每个资源最新备份',
+                description: '为每个文件/文件夹只保留一份最新备份，自动清理旧版本',
+                detail: 'Keep only latest backup per resource',
+                command: 'codepath.keepLatestBackups'
+            },
+            {
+                label: '🗑️ 备份管理：清空所有备份',
+                description: '删除 .codepath/file-backups 中的所有备份文件和索引（操作不可撤销）',
+                detail: 'Clear all CodePath file backups',
+                command: 'codepath.clearAllBackups'
             }
         ];
 
@@ -120,7 +146,6 @@ export class StatusBarManager implements IStatusBarManager {
     }
 
     private async showQuickMenu(): Promise<void> {
-        // AI features are now commented out in menuItems, so no filtering needed
         const selected = await vscode.window.showQuickPick(this.menuItems, {
             placeHolder: 'CodePath 快捷操作',
             matchOnDescription: true,
@@ -147,25 +172,25 @@ export class StatusBarManager implements IStatusBarManager {
                 `**节点数：** ${nodeCount}\n\n` +
                 `---\n\n` +
                 `点击打开快捷菜单：\n` +
-                `- 创建 / 切换 CodePath\n` +
-                `- 导出 / 导入\n` +
-                `- 删除 CodePath\n` +
-                `- 刷新预览等更多操作`
+                `- 创建 / 切换 / 导入 / 导出 CodePath\n` +
+                `- 删除 CodePath，刷新预览\n` +
+                `- 💾 快速备份当前文件/文件夹\n` +
+                `- ♻️ 从最新备份还原当前文件/文件夹\n` +
+                `- 🧹 / 🗑️ 备份管理等操作`
             );
         } else {
             this.graphInfoItem.text = '🪧 未选择 CodePath';
             this.graphInfoItem.tooltip = this.createMarkdownTooltip(
                 `**暂无活动的 CodePath**\n\n` +
                 `点击打开快捷菜单：\n` +
-                `- 创建 CodePath\n` +
-                `- 导入 CodePath\n` +
-                `- 切换 CodePath`
+                `- 创建 / 导入 / 切换 CodePath\n` +
+                `- 也可以直接进行备份管理操作`
             );
         }
     }
 
     /**
-     * 在测试环境下 VS Code 可能未暴露 MarkdownString，这里提供兜底实现
+     * 在测试环境下 VS Code 可能未暴露 MarkdownString，这里提供向后兼容实现
      */
     private createMarkdownTooltip(initial: string): vscode.MarkdownString {
         const MarkdownCtor = (vscode as any).MarkdownString;
