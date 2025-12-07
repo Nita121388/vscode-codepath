@@ -248,6 +248,7 @@ export async function hashPassword(password) {  // 👈 6. Select function defin
 - **File Explorer Integration** - Mark files/folders as nodes, preview and share graphs
 - **Node Operations** - Copy, paste, cut, move up/down with custom preview menu
 - **Copy Code Context** - Copy relative file paths, line ranges, and selected snippets for quick sharing
+- **File & Folder Backup Management** - Quickly back up selected files/folders from the explorer or status bar menu to `.codepath/file-backups`, keep only the latest backup per resource, restore from the latest backup, or clear all backups with one click
 - **Cross-platform** compatibility
 
 ### 🎯 Use Cases

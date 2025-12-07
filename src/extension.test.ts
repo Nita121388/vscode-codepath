@@ -6,6 +6,7 @@ import { activate, deactivate, getExtensionState, resetExtensionState } from './
 import { StorageManager } from './managers/StorageManager';
 import { ConfigurationManager } from './managers/ConfigurationManager';
 import { GraphManager } from './managers/GraphManager';
+import { NodeManager } from './managers/NodeManager';
 
 // 模拟 VS Code API
 vi.mock('vscode', () => ({
@@ -15,10 +16,35 @@ vi.mock('vscode', () => ({
     window: {
         showErrorMessage: vi.fn().mockResolvedValue(undefined), // 模拟错误消息显示
         showWarningMessage: vi.fn().mockResolvedValue(undefined), // 模拟警告消息显示
-        showInformationMessage: vi.fn().mockResolvedValue(undefined) // 模拟信息消息显示
+        showInformationMessage: vi.fn().mockResolvedValue(undefined), // 模拟信息消息显示
+        activeTextEditor: undefined,
+        createStatusBarItem: vi.fn(() => ({
+            text: '',
+            tooltip: '',
+            command: '',
+            show: vi.fn(),
+            hide: vi.fn(),
+            dispose: vi.fn()
+        })),
+        createWebviewPanel: vi.fn(() => ({
+            webview: {
+                html: '',
+                onDidReceiveMessage: vi.fn(() => ({ dispose: vi.fn() })),
+                postMessage: vi.fn(() => Promise.resolve(true))
+            },
+            onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
+            reveal: vi.fn(),
+            dispose: vi.fn(),
+            visible: true
+        })),
+        onDidChangeTextEditorSelection: vi.fn(() => ({ dispose: vi.fn() })),
+        onDidChangeActiveTextEditor: vi.fn(() => ({ dispose: vi.fn() })),
+        onDidChangeVisibleTextEditors: vi.fn(() => ({ dispose: vi.fn() }))
     },
     commands: {
-        executeCommand: vi.fn().mockResolvedValue(undefined) // 模拟命令执行
+        executeCommand: vi.fn().mockResolvedValue(undefined), // 模拟命令执行
+        setContext: vi.fn().mockResolvedValue(undefined), // 模拟设置上下文
+        registerCommand: vi.fn(() => ({ dispose: vi.fn() })) // 模拟注册命令
     },
     ViewColumn: {
         One: 1,
@@ -28,7 +54,31 @@ vi.mock('vscode', () => ({
         Beside: -2
     },
     ExtensionContext: vi.fn(), // 模拟扩展上下文
-    Disposable: vi.fn(() => ({ dispose: vi.fn() })) // 模拟可销毁对象
+    Disposable: vi.fn(() => ({ dispose: vi.fn() })), // 模拟可销毁对象
+    CodeActionKind: {
+        QuickFix: { value: 'quickfix' }
+    },
+    languages: {
+        registerCodeActionsProvider: vi.fn(() => ({ dispose: vi.fn() })) // 模拟注册代码动作提供者
+    },
+    Uri: {
+        file: vi.fn((path: string) => ({ fsPath: path, scheme: 'file' })),
+        joinPath: vi.fn((base: any, ...paths: string[]) => ({
+            fsPath: `${base.fsPath || base}/${paths.join('/')}`,
+            scheme: 'file'
+        }))
+    },
+    Position: vi.fn((line: number, character: number) => ({ line, character })),
+    Range: vi.fn((start: any, end: any) => ({ start, end })),
+    Selection: vi.fn((anchor: any, active: any) => ({ anchor, active })),
+    StatusBarAlignment: {
+        Left: 1,
+        Right: 2
+    },
+    FileType: {
+        File: 1,
+        Directory: 2
+    }
 }));
 
 // 模拟各个管理器模块
@@ -39,6 +89,12 @@ vi.mock('./managers/NodeManager');
 vi.mock('./managers/PreviewManager');
 vi.mock('./managers/CommandManager');
 vi.mock('./managers/StatusBarManager');
+vi.mock('./managers/WebviewManager');
+vi.mock('./managers/IntegrationManager');
+vi.mock('./managers/AIEndpointManager');
+vi.mock('./managers/LinePopupManager');
+vi.mock('./views/PreviewSidebarProvider');
+vi.mock('./services/RootSymbolService');
 vi.mock('./renderers/TextRenderer');
 vi.mock('./renderers/MermaidRenderer');
 
@@ -130,6 +186,43 @@ describe('Extension Lifecycle', () => {
         (StorageManager as any).mockImplementation(() => mockStorageManager);
         (ConfigurationManager as any).mockImplementation(() => mockConfigManager);
         (GraphManager as any).mockImplementation(() => mockGraphManager);
+        (NodeManager as any).mockImplementation(() => ({
+            createNode: vi.fn(),
+            updateNode: vi.fn(),
+            deleteNode: vi.fn(),
+            dispose: vi.fn()
+        }));
+        (PreviewManager as any).mockImplementation(() => ({
+            refresh: vi.fn(),
+            dispose: vi.fn()
+        }));
+        (CommandManager as any).mockImplementation(() => ({
+            dispose: vi.fn()
+        }));
+        (StatusBarManager as any).mockImplementation(() => ({
+            update: vi.fn(),
+            dispose: vi.fn()
+        }));
+        (WebviewManager as any).mockImplementation(() => ({
+            dispose: vi.fn()
+        }));
+        (IntegrationManager as any).mockImplementation(() => ({
+            dispose: vi.fn()
+        }));
+        (AIEndpointManager as any).mockImplementation(() => ({
+            start: vi.fn(),
+            stop: vi.fn(),
+            dispose: vi.fn()
+        }));
+        (LinePopupManager as any).mockImplementation(() => ({
+            dispose: vi.fn()
+        }));
+        (PreviewSidebarProvider as any).mockImplementation(() => ({
+            dispose: vi.fn()
+        }));
+        (RootSymbolService as any).mockImplementation(() => ({
+            getSymbol: vi.fn()
+        }));
     });
 
     // 每个测试用例后执行
