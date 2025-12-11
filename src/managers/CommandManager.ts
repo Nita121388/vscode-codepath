@@ -1002,10 +1002,10 @@ export class CommandManager {
     /**
      * 处理从资源管理器或编辑器快速备份文件/文件夹
      */
-    private async handleBackupResource(uri?: vscode.Uri): Promise<void> {
+     private async handleBackupResource(uri?: vscode.Uri, selectedUris?: vscode.Uri[]): Promise<void> {
         try {
-            const targetUri = this.resolveBackupTargetUri(uri);
-            if (!targetUri) {
+            const targetUris = this.resolveBackupTargetUris(uri, selectedUris);
+            if (!targetUris.length) {
                 this.showWarning('请先在资源管理器或编辑器中选择要备份的文件或文件夹');
                 return;
             }
@@ -1015,9 +1015,20 @@ export class CommandManager {
                 placeHolder: '例如：重构前版本、测试前快照等'
             });
 
-            await this.fileBackupManager.backupResource(targetUri.fsPath, note ?? undefined);
+            const targetPaths = targetUris.map(item => item.fsPath);
 
-            this.showSuccess('已创建文件备份', `路径: ${targetUri.fsPath}`);
+            for (const targetPath of targetPaths) {
+                await this.fileBackupManager.backupResource(targetPath, note ?? undefined);
+            }
+
+            if (targetPaths.length === 1) {
+                this.showSuccess('已创建文件备份', `路径: ${targetPaths[0]}`);
+            } else {
+                this.showSuccess(
+                    `已创建 ${targetPaths.length} 个文件/文件夹备份`,
+                    targetPaths.join('\n')
+                );
+            }
         } catch (error) {
             this.handleError('创建文件备份', error);
         }
@@ -1116,6 +1127,35 @@ export class CommandManager {
         }
 
         return null;
+    }
+
+    /**
+     * 解析多选或单选场景下的备份目标 URI 列表
+     */
+    private resolveBackupTargetUris(uri?: vscode.Uri, selectedUris?: vscode.Uri[]): vscode.Uri[] {
+        const candidates: vscode.Uri[] = [];
+
+        if (Array.isArray(selectedUris) && selectedUris.length) {
+            candidates.push(...selectedUris.filter(item => item.scheme === 'file'));
+        }
+
+        if (uri && uri.scheme === 'file') {
+            candidates.push(uri);
+        }
+
+        if (!candidates.length) {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor && activeEditor.document.uri.scheme === 'file') {
+                candidates.push(activeEditor.document.uri);
+            }
+        }
+
+        const unique = new Map<string, vscode.Uri>();
+        for (const item of candidates) {
+            unique.set(item.fsPath, item);
+        }
+
+        return Array.from(unique.values());
     }
 
     /**
