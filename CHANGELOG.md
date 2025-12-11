@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2025-12-11
+
+### Added
+- **File & Folder Backup Management** - Quick backup and restore functionality from explorer or status bar menu
+  - Back up selected files/folders to `.codepath/file-backups` directory
+  - Automatic latest backup retention per resource (only keeps most recent backup)
+  - One-click restore from the latest backup with confirmation
+  - Clear all backups functionality with safety confirmation
+  - Status bar menu integration for quick backup operations
+  - File explorer context menu support for direct file/folder backup
+
+### Technical
+- Added BackupManager for centralized backup operations
+- Integrated backup operations into StatusBarManager quick menu
+- Enhanced file explorer context menu with backup options
+- Backup metadata stored alongside files for tracking
+
 ## [0.2.7] - 2025-11-23
 
 ### Added
