@@ -40,8 +40,8 @@ Code Path Marker is a VS Code extension that lets you capture execution paths wh
 3. Click Install and reload VS Code when prompted.
 
 ### Build Your First Execution Path
-1. Select any code snippet and choose `Code Path → Mark as New Node` to create a root.
-2. Keep selecting code and use `Mark as Child Node`, `Mark as Parent Node`, or `Mark as Bro Node` to build hierarchy.
+1. Select any code snippet and choose `Code Path → 🪧 Mark as New Node` to create a root.
+2. Keep selecting code and use `🪧 Mark as Child Node`, `🪧 Mark as Parent Node`, or `🪧 Mark as Bro Node` to build hierarchy.
 3. Click nodes inside the Code Path preview panel to navigate to the file and view the live tree.
 4. When code shifts, press Refresh and follow the guidance to update node locations.
 

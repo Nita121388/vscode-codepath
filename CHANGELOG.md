@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Code Context Basket productivity commands** – Added `🧺 Clear And Add` to reset the current basket before capturing a new snippet, plus a “Copy as Markdown” action in the basket sidebar for one-click sharing.
+
+### Changed
+- **Command menu readability** – Path-related commands now use the road-sign emoji (`🪧`) and backup operations use the archive emoji (`🗂️`) to make right-click menus easier to scan.
+- **Unified toolbar styling** – The preview panel and Code Context Basket now share the same pill-style toolbar buttons, ensuring consistent visuals between the two webviews.
+
 ## [0.2.8] - 2025-12-11
 
 ### Added

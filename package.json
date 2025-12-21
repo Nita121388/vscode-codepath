@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -55,28 +55,34 @@
           "name": "预览",
           "type": "webview",
           "contextualTitle": "CodePath 预览"
+        },
+        {
+          "id": "codepath.basketView",
+          "name": "🧺 Code Context Basket",
+          "type": "webview",
+          "contextualTitle": "Code Context Basket"
         }
       ]
     },
     "commands": [
       {
         "command": "codepath.createNode",
-        "title": "Mark as New Node",
+        "title": "🪧 Mark as New Node",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.createChildNode",
-        "title": "Mark as Child Node",
+        "title": "🪧 Mark as Child Node",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.createParentNode",
-        "title": "Mark as Parent Node",
+        "title": "🪧 Mark as Parent Node",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.createBroNode",
-        "title": "Mark as Bro Node",
+        "title": "🪧 Mark as Bro Node",
         "category": "Code Path Marker"
       },
       {
@@ -201,27 +207,42 @@
       },
       {
         "command": "codepath.backupResource",
-        "title": "快速备份文件/文件夹",
+        "title": "🗂️ 快速备份文件/文件夹",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.restoreResourceFromLatestBackup",
-        "title": "从最新备份还原文件/文件夹",
+        "title": "🗂️ 从最新备份还原文件/文件夹",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.keepLatestBackups",
-        "title": "备份管理：仅保留每个资源最新备份",
+        "title": "🗂️ 备份管理：仅保留每个资源最新备份",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.clearAllBackups",
-        "title": "备份管理：清空所有备份",
+        "title": "🗂️ 备份管理：清空所有备份",
         "category": "Code Path Marker"
       },
       {
         "command": "codepath.restoreResourceFromBackupFile",
-        "title": "备份：还原到此备份版本",
+        "title": "🗂️ 备份：还原到此备份版本",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.addToBasket",
+        "title": "🧺 Add",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.clearAndAddToBasket",
+        "title": "🧺 Clear And Add",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.openBasketPanel",
+        "title": "🧺 Open",
         "category": "Code Path Marker"
       }
     ],
@@ -341,6 +362,21 @@
           "command": "codepath.clearAllBackups",
           "when": "true",
           "group": "5_backup@5"
+        },
+        {
+          "command": "codepath.addToBasket",
+          "when": "editorHasSelection",
+          "group": "2_edit@5"
+        },
+        {
+          "command": "codepath.clearAndAddToBasket",
+          "when": "editorHasSelection",
+          "group": "2_edit@5.1"
+        },
+        {
+          "command": "codepath.openBasketPanel",
+          "when": "true",
+          "group": "2_edit@6"
         }
       ]
     },
@@ -395,6 +431,15 @@
         "command": "codepath.copyCodeContext",
         "key": "ctrl+alt+x",
         "when": "editorHasSelection"
+      },
+      {
+        "command": "codepath.addToBasket",
+        "key": "ctrl+shift+a",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "codepath.openBasketPanel",
+        "key": "ctrl+shift+b"
       }
     ],
     "configuration": {

@@ -40,8 +40,8 @@ Code Path Marker 是一款 VS Code 扩展，支持在阅读或调试代码时，
 3. 点击安装，并在提示时重新加载 VS Code。
 
 ### 创建第一个执行路径
-1. 选中任意代码片段，右键选择 `Code Path → Mark as New Node` 新建根节点。
-2. 选中后续代码，选择 `Mark as Child Node`、`Mark as Parent Node` 或 `Mark as Bro Node` 构建层级。
+1. 选中任意代码片段，右键选择 `Code Path → 🪧 Mark as New Node` 新建根节点。
+2. 选中后续代码，选择 `🪧 Mark as Child Node`、`🪧 Mark as Parent Node` 或 `🪧 Mark as Bro Node` 构建层级。
 3. 在左侧 Code Path 预览面板中点击节点即可跳转至对应代码，查看实时树状结构。
 4. 当代码移动或修改后，点击“刷新”按钮，根据提示更新节点位置。
 
