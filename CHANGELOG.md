@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-## [0.3.0] - 2025-12-22
+## [0.3.1] - 2025-12-22
 
 ### Added
 - **Code Context Basket productivity commands** – Added `🧺 Clear And Add` to reset the current basket before capturing a new snippet, plus a “Copy as Markdown” action in the basket sidebar for one-click sharing.

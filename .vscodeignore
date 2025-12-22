@@ -21,6 +21,7 @@ AI_FEATURES_DISABLED.md
 README copy.md
 DEBUG_LINE_POPUP.md
 Mytalk.md
+DEVELOPMENT_COMPLETED.txt
 docs/CODE_SNIPPET_LOCATION.md
 manual-test-script.js
 test-bro-node.js
@@ -28,6 +29,13 @@ verify-implementation.js
 publish.sh
 temp.txt
 ok.json
+.claude/**
+image/**
+key_simulator.py
+FEATURE_COMPLETE_SUMMARY.md
+IMPLEMENTATION_PLAN.md
+MULTIPLE_CODE_CONTEXT_SUMMARY.md
+QUICK_START.md
 .codepath/**
 .kiro/**
 .vs/**
