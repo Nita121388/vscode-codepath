@@ -5,6 +5,12 @@ import { Configuration, RootSymbolPreferences } from '../types';
 import { Graph } from '../models/Graph';
 import { IStorageManager } from '../interfaces/IStorageManager';
 import { Graph as GraphModel } from '../models/Graph';
+import {
+    CodeContextBasket,
+    BasketHistoryEntry,
+    BasketHistorySummary,
+    BasketHistoryIndex
+} from '../types/codeContext';
 
 /**
  * StorageManager handles file system operations for graph persistence,
@@ -17,6 +23,10 @@ export class StorageManager implements IStorageManager {
     private readonly backupDir: string;
     private readonly configFile: string;
     private readonly exportsDir: string;
+    private readonly basketsDir: string;
+    private readonly basketsMetadataFile: string;
+    private readonly historyDir: string;
+    private readonly historyIndexFile: string;
 
     constructor(workspaceRoot?: string) {
         // Use provided workspace root or get from VS Code
@@ -25,7 +35,11 @@ export class StorageManager implements IStorageManager {
         this.graphsDir = path.join(this.codepathDir, 'graphs');
         this.backupDir = path.join(this.codepathDir, 'backup');
         this.exportsDir = path.join(this.codepathDir, 'exports');
+        this.basketsDir = path.join(this.codepathDir, 'baskets');
         this.configFile = path.join(this.codepathDir, 'config.json');
+        this.basketsMetadataFile = path.join(this.codepathDir, 'baskets-metadata.json');
+        this.historyDir = path.join(this.codepathDir, 'basket-history');
+        this.historyIndexFile = path.join(this.historyDir, 'history-index.json');
     }
 
     /**
@@ -76,14 +90,17 @@ export class StorageManager implements IStorageManager {
         try {
             // Create main .codepath directory
             await this.ensureDirectoryExists(this.codepathDir);
-            
+
             // Create subdirectories
             await this.ensureDirectoryExists(this.graphsDir);
             await this.ensureDirectoryExists(this.backupDir);
             await this.ensureDirectoryExists(this.exportsDir);
+            await this.ensureDirectoryExists(this.basketsDir);
+            await this.ensureDirectoryExists(this.historyDir);
 
             // Create default config if it doesn't exist
             await this.ensureDefaultConfig();
+            await this.ensureHistoryIndex();
         } catch (error) {
             throw new Error(`Failed to create workspace directory structure: ${error}`);
         }
@@ -142,6 +159,22 @@ export class StorageManager implements IStorageManager {
             const defaultConfig = this.buildDefaultConfiguration();
             // Write directly to avoid circular call to ensureWorkspaceDirectory
             await fs.writeFile(this.configFile, JSON.stringify(defaultConfig, null, 2), 'utf8');
+        }
+    }
+
+    /**
+     * 确保历史索引文件存在
+     */
+    private async ensureHistoryIndex(): Promise<void> {
+        try {
+            await fs.access(this.historyIndexFile);
+        } catch {
+            const defaultIndex = this.buildDefaultHistoryIndex();
+            await fs.writeFile(
+                this.historyIndexFile,
+                JSON.stringify(this.serializeHistoryIndex(defaultIndex), null, 2),
+                'utf8'
+            );
         }
     }
 
@@ -653,7 +686,7 @@ export class StorageManager implements IStorageManager {
         try {
             const graphs = await this.listGraphs();
             const graphCount = graphs.length;
-            
+
             // Calculate total size of graph files
             let totalSize = 0;
             const files = await fs.readdir(this.graphsDir);
@@ -664,7 +697,7 @@ export class StorageManager implements IStorageManager {
                     totalSize += stats.size;
                 }
             }
-            
+
             // Count backup files
             let backupCount = 0;
             try {
@@ -673,10 +706,504 @@ export class StorageManager implements IStorageManager {
             } catch {
                 backupCount = 0;
             }
-            
+
             return { graphCount, totalSize, backupCount };
         } catch (error) {
             return { graphCount: 0, totalSize: 0, backupCount: 0 };
         }
+    }
+
+    // ==================== Basket-related methods ====================
+
+    /**
+     * Saves a basket to file
+     * 篮子相关：保存篮子到文件
+     */
+    public async saveBasketToFile(basket: any): Promise<void> {
+        try {
+            await this.ensureWorkspaceDirectory();
+
+            const basketFile = path.join(this.basketsDir, `${basket.id}.json`);
+            const basketData = this.serializeBasket(basket);
+
+            await fs.writeFile(basketFile, JSON.stringify(basketData, null, 2), 'utf8');
+
+            // Update metadata
+            await this.updateBasketsMetadata(basket.id, basket.name, basket.items.length);
+        } catch (error) {
+            throw new Error(`Failed to save basket ${basket.id}: ${error}`);
+        }
+    }
+
+    /**
+     * Loads a basket from file
+     */
+    public async loadBasketFromFile(basketId: string): Promise<any> {
+        try {
+            const basketFile = path.join(this.basketsDir, `${basketId}.json`);
+
+            await fs.access(basketFile);
+
+            const fileContent = await fs.readFile(basketFile, 'utf8');
+            const basketData = JSON.parse(fileContent);
+
+            return this.deserializeBasket(basketData);
+        } catch (error) {
+            if ((error as any).code === 'ENOENT') {
+                throw new Error(`Basket file not found: ${basketId}`);
+            }
+            throw new Error(`Failed to load basket ${basketId}: ${error}`);
+        }
+    }
+
+    /**
+     * Deletes a basket file
+     */
+    public async deleteBasketFile(basketId: string): Promise<void> {
+        try {
+            const basketFile = path.join(this.basketsDir, `${basketId}.json`);
+
+            await fs.access(basketFile);
+            await fs.unlink(basketFile);
+
+            // Update metadata
+            await this.removeBasketsMetadata(basketId);
+        } catch (error) {
+            if ((error as any).code === 'ENOENT') {
+                throw new Error(`Basket file not found: ${basketId}`);
+            }
+            throw new Error(`Failed to delete basket ${basketId}: ${error}`);
+        }
+    }
+
+    /**
+     * Lists all available baskets
+     */
+    public async listBaskets(): Promise<Array<{ id: string; name: string; itemCount: number; createdAt: Date; updatedAt: Date }>> {
+        try {
+            const hasBasketsDirectory = await this.pathExists(this.basketsDir);
+            if (!hasBasketsDirectory) {
+                return [];
+            }
+
+            const files = await fs.readdir(this.basketsDir);
+            const basketFiles = files.filter(file => file.endsWith('.json'));
+
+            const baskets = [];
+
+            for (const file of basketFiles) {
+                try {
+                    const basketId = path.basename(file, '.json');
+                    const filePath = path.join(this.basketsDir, file);
+                    const fileContent = await fs.readFile(filePath, 'utf8');
+                    const basketData = JSON.parse(fileContent);
+
+                    baskets.push({
+                        id: basketId,
+                        name: basketData.name,
+                        itemCount: basketData.items?.length || 0,
+                        createdAt: new Date(basketData.createdAt),
+                        updatedAt: new Date(basketData.updatedAt)
+                    });
+                } catch (error) {
+                    console.warn(`Failed to read basket file ${file}: ${error}`);
+                }
+            }
+
+            return baskets;
+        } catch (error) {
+            throw new Error(`Failed to list baskets: ${error}`);
+        }
+    }
+
+    /**
+     * Reads baskets metadata file
+     */
+    public async readBasketsMetadata(): Promise<any> {
+        try {
+            const fileContent = await fs.readFile(this.basketsMetadataFile, 'utf8');
+            return JSON.parse(fileContent);
+        } catch (error) {
+            // Return empty metadata if file doesn't exist
+            return { count: 0, baskets: [], updatedAt: new Date().toISOString() };
+        }
+    }
+
+    /**
+     * Writes baskets metadata file
+     */
+    private async writeBasketsMetadata(metadata: any): Promise<void> {
+        try {
+            await this.ensureWorkspaceDirectory();
+            await fs.writeFile(this.basketsMetadataFile, JSON.stringify(metadata, null, 2), 'utf8');
+        } catch (error) {
+            // Don't throw error for metadata write failures
+            console.warn(`Failed to write baskets metadata: ${error}`);
+        }
+    }
+
+    /**
+     * Updates baskets metadata when a basket is saved
+     */
+    private async updateBasketsMetadata(basketId: string, basketName: string, itemCount: number): Promise<void> {
+        try {
+            const metadata = await this.readBasketsMetadata();
+
+            // Update or add basket entry
+            const existingIndex = metadata.baskets.findIndex((b: any) => b.id === basketId);
+            const basketEntry = {
+                id: basketId,
+                name: basketName,
+                itemCount,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            if (existingIndex >= 0) {
+                basketEntry.createdAt = metadata.baskets[existingIndex].createdAt;
+                metadata.baskets[existingIndex] = basketEntry;
+            } else {
+                metadata.baskets.push(basketEntry);
+            }
+
+            metadata.count = metadata.baskets.length;
+            metadata.updatedAt = new Date().toISOString();
+
+            await this.writeBasketsMetadata(metadata);
+        } catch (error) {
+            // Don't throw error for metadata update failures
+            console.warn(`Failed to update baskets metadata: ${error}`);
+        }
+    }
+
+    /**
+     * Removes basket from metadata
+     */
+    private async removeBasketsMetadata(basketId: string): Promise<void> {
+        try {
+            const metadata = await this.readBasketsMetadata();
+
+            metadata.baskets = metadata.baskets.filter((b: any) => b.id !== basketId);
+            metadata.count = metadata.baskets.length;
+            metadata.updatedAt = new Date().toISOString();
+
+            await this.writeBasketsMetadata(metadata);
+        } catch (error) {
+            // Don't throw error for metadata removal failures
+            console.warn(`Failed to remove basket from metadata: ${error}`);
+        }
+    }
+
+    // ==================== Basket History Methods ====================
+
+    /**
+     * ä¿å­˜åŽ†å²ç¯®å­æ¡ç›®
+     */
+    public async saveBasketHistoryEntry(entry: BasketHistoryEntry): Promise<void> {
+        try {
+            await this.ensureWorkspaceDirectory();
+            await this.ensureDirectoryExists(this.historyDir);
+            await this.ensureHistoryIndex();
+
+            const historyFile = path.join(this.historyDir, `${entry.historyId}.json`);
+            const payload = this.serializeHistoryEntry(entry);
+            await fs.writeFile(historyFile, JSON.stringify(payload, null, 2), 'utf8');
+
+            await this.updateHistoryIndexEntry(entry);
+        } catch (error) {
+            throw new Error(`Failed to save basket history entry ${entry.historyId}: ${error}`);
+        }
+    }
+
+    /**
+     * è¯»å–åŽ†å²ç¯®å­æ¡ç›®
+     */
+    public async loadBasketHistoryEntry(historyId: string): Promise<BasketHistoryEntry | null> {
+        try {
+            const historyFile = path.join(this.historyDir, `${historyId}.json`);
+            await fs.access(historyFile);
+            const fileContent = await fs.readFile(historyFile, 'utf8');
+            const raw = JSON.parse(fileContent);
+            return this.deserializeHistoryEntry(raw);
+        } catch (error) {
+            if ((error as any).code === 'ENOENT') {
+                return null;
+            }
+            throw new Error(`Failed to load basket history entry ${historyId}: ${error}`);
+        }
+    }
+
+    /**
+     * åˆ—å‡ºæ‰€æœ‰åŽ†å²ç¯®å­æŒ‡ç´¢
+     */
+    public async listBasketHistorySummaries(): Promise<BasketHistorySummary[]> {
+        try {
+            const hasHistoryDirectory = await this.pathExists(this.historyDir);
+            if (!hasHistoryDirectory) {
+                return [];
+            }
+
+            const index = await this.readBasketHistoryIndex();
+            return index.entries
+                .slice()
+                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+                .map(entry => ({
+                    historyId: entry.historyId,
+                    basketId: entry.basketId,
+                    name: entry.name,
+                    createdAt: entry.createdAt,
+                    updatedAt: entry.updatedAt,
+                    lastOpenedAt: entry.lastOpenedAt,
+                    itemCount: entry.itemCount,
+                    tags: entry.tags,
+                    source: entry.source
+                }));
+        } catch (error) {
+            console.warn(`Failed to list basket history entries: ${error}`);
+            return [];
+        }
+    }
+
+    /**
+     * åˆ é™¤åŽ†å²ç¯®å­æ¡ç›®
+     */
+    public async deleteBasketHistoryEntry(historyId: string): Promise<void> {
+        try {
+            const historyFile = path.join(this.historyDir, `${historyId}.json`);
+            await fs.access(historyFile);
+            await fs.unlink(historyFile);
+            await this.removeHistoryIndexEntry(historyId);
+        } catch (error) {
+            if ((error as any).code === 'ENOENT') {
+                return;
+            }
+            throw new Error(`Failed to delete basket history entry ${historyId}: ${error}`);
+        }
+    }
+
+    /**
+     * æ›´æ–°åŽ†å²æŒ‡ç´¢æ¡ç›®
+     */
+    private async updateHistoryIndexEntry(entry: BasketHistoryEntry): Promise<void> {
+        try {
+            const index = await this.readBasketHistoryIndex();
+            const summary = {
+                historyId: entry.historyId,
+                basketId: entry.basketId,
+                name: entry.name,
+                createdAt: entry.createdAt,
+                updatedAt: entry.updatedAt,
+                lastOpenedAt: entry.lastOpenedAt,
+                itemCount: entry.itemCount,
+                tags: entry.tags,
+                source: entry.source
+            };
+
+            const existingIndex = index.entries.findIndex(e => e.historyId === entry.historyId);
+            if (existingIndex >= 0) {
+                index.entries[existingIndex] = summary;
+            } else {
+                index.entries.push(summary);
+            }
+
+            index.updatedAt = new Date();
+            await this.writeBasketHistoryIndex(index);
+        } catch (error) {
+            console.warn(`Failed to update basket history index: ${error}`);
+        }
+    }
+
+    /**
+     * ä»ŽæŒ‡ç´¢ä¸­ç§»é™¤åŽ†å²æ¡ç›®
+     */
+    private async removeHistoryIndexEntry(historyId: string): Promise<void> {
+        try {
+            const index = await this.readBasketHistoryIndex();
+            index.entries = index.entries.filter(entry => entry.historyId !== historyId);
+            index.updatedAt = new Date();
+            await this.writeBasketHistoryIndex(index);
+        } catch (error) {
+            console.warn(`Failed to remove history entry from index: ${error}`);
+        }
+    }
+
+    /**
+     * è¯»å–åŽ†å²æŒ‡ç´¢
+     */
+    private async readBasketHistoryIndex(): Promise<BasketHistoryIndex> {
+        try {
+            const fileContent = await fs.readFile(this.historyIndexFile, 'utf8');
+            const parsed = JSON.parse(fileContent);
+
+            // 兼容旧版本：曾经支持“标记为已删除”，现在统一改为永久删除。
+            // 这里对索引做一次清理：遇到 deletedAt 的条目，尝试删除对应快照文件并从索引移除。
+            const legacyDeletedIds: string[] = Array.isArray(parsed?.entries)
+                ? parsed.entries
+                      .filter((entry: any) => entry?.deletedAt && entry?.historyId)
+                      .map((entry: any) => String(entry.historyId))
+                : [];
+
+            if (legacyDeletedIds.length > 0) {
+                await Promise.all(
+                    legacyDeletedIds.map(async historyId => {
+                        try {
+                            const historyFile = path.join(this.historyDir, `${historyId}.json`);
+                            await fs.unlink(historyFile);
+                        } catch (error) {
+                            if ((error as any)?.code !== 'ENOENT') {
+                                console.warn(`Failed to purge legacy deleted history entry ${historyId}: ${error}`);
+                            }
+                        }
+                    })
+                );
+
+                parsed.entries = Array.isArray(parsed.entries)
+                    ? parsed.entries.filter((entry: any) => !entry?.deletedAt)
+                    : [];
+
+                const cleaned = this.deserializeHistoryIndex(parsed);
+                await this.writeBasketHistoryIndex(cleaned);
+                return cleaned;
+            }
+
+            return this.deserializeHistoryIndex(parsed);
+        } catch (error) {
+            const fallback = this.buildDefaultHistoryIndex();
+            await this.writeBasketHistoryIndex(fallback);
+            return fallback;
+        }
+    }
+
+    /**
+     * å†™å…¥åŽ†å²æŒ‡ç´¢
+     */
+    private async writeBasketHistoryIndex(index: BasketHistoryIndex): Promise<void> {
+        const payload = this.serializeHistoryIndex(index);
+        await fs.writeFile(this.historyIndexFile, JSON.stringify(payload, null, 2), 'utf8');
+    }
+
+    /**
+     * æž„å»ºé»˜è®¤åŽ†å²æŒ‡ç´¢
+     */
+    private buildDefaultHistoryIndex(): BasketHistoryIndex {
+        return {
+            version: 1,
+            updatedAt: new Date(),
+            entries: []
+        };
+    }
+
+    /**
+     * å°†åŽ†å²æ¡ç›®ç¼–ç ä¸º JSON
+     */
+    private serializeHistoryEntry(entry: BasketHistoryEntry): any {
+        return {
+            historyId: entry.historyId,
+            basketId: entry.basketId,
+            name: entry.name,
+            description: entry.description,
+            tags: entry.tags,
+            source: entry.source,
+            createdAt: entry.createdAt.toISOString(),
+            updatedAt: entry.updatedAt.toISOString(),
+            lastOpenedAt: entry.lastOpenedAt ? entry.lastOpenedAt.toISOString() : undefined,
+            itemCount: entry.itemCount,
+            snapshot: this.serializeBasket(entry.snapshot)
+        };
+    }
+
+    /**
+     * è§£æžåŽ†å²æ¡ç›®
+     */
+    private deserializeHistoryEntry(data: any): BasketHistoryEntry {
+        return {
+            historyId: data.historyId,
+            basketId: data.basketId,
+            name: data.name,
+            description: data.description,
+            tags: data.tags,
+            source: data.source,
+            createdAt: new Date(data.createdAt),
+            updatedAt: new Date(data.updatedAt),
+            lastOpenedAt: data.lastOpenedAt ? new Date(data.lastOpenedAt) : undefined,
+            itemCount: data.itemCount,
+            snapshot: this.deserializeBasket(data.snapshot)
+        };
+    }
+
+    /**
+     * å°†åŽ†å²æŒ‡ç´¢ç¼–ç 
+     */
+    private serializeHistoryIndex(index: BasketHistoryIndex): any {
+        return {
+            version: index.version,
+            updatedAt: index.updatedAt.toISOString(),
+            entries: index.entries.map(entry => ({
+                historyId: entry.historyId,
+                basketId: entry.basketId,
+                name: entry.name,
+                createdAt: entry.createdAt.toISOString(),
+                updatedAt: entry.updatedAt.toISOString(),
+                lastOpenedAt: entry.lastOpenedAt ? entry.lastOpenedAt.toISOString() : undefined,
+                itemCount: entry.itemCount,
+                tags: entry.tags,
+                source: entry.source
+            }))
+        };
+    }
+
+    /**
+     * è§£æžåŽ†å²æŒ‡ç´¢
+     */
+    private deserializeHistoryIndex(data: any): BasketHistoryIndex {
+        return {
+            version: data?.version ?? 1,
+            updatedAt: data?.updatedAt ? new Date(data.updatedAt) : new Date(),
+            entries: Array.isArray(data?.entries)
+                ? data.entries.map((entry: any) => ({
+                      historyId: entry.historyId,
+                      basketId: entry.basketId,
+                      name: entry.name,
+                      createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date(),
+                      updatedAt: entry.updatedAt ? new Date(entry.updatedAt) : new Date(),
+                      lastOpenedAt: entry.lastOpenedAt ? new Date(entry.lastOpenedAt) : undefined,
+                      itemCount: entry.itemCount ?? 0,
+                      tags: entry.tags,
+                      source: entry.source
+                  }))
+                : []
+        };
+    }
+
+    /**
+     * Serializes a basket for storage
+     */
+    private serializeBasket(basket: CodeContextBasket): any {
+        return {
+            id: basket.id,
+            name: basket.name,
+            items: basket.items,
+            createdAt: basket.createdAt.toISOString ? basket.createdAt.toISOString() : basket.createdAt,
+            updatedAt: basket.updatedAt.toISOString ? basket.updatedAt.toISOString() : basket.updatedAt,
+            exportFormat: basket.exportFormat,
+            description: basket.description,
+            tags: basket.tags
+        };
+    }
+
+    /**
+     * Deserializes a basket from storage
+     */
+    private deserializeBasket(data: any): CodeContextBasket {
+        return {
+            id: data.id,
+            name: data.name,
+            items: data.items || [],
+            createdAt: new Date(data.createdAt),
+            updatedAt: new Date(data.updatedAt),
+            exportFormat: data.exportFormat,
+            description: data.description,
+            tags: data.tags
+        };
     }
 }

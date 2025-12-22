@@ -209,6 +209,9 @@ export async function hashPassword(password) {  // 👈 第 6 步："Mark as Chi
 | **🧺 Clear And Add** | 清空篮子，重新写入最新选区 | - |
 | **🧺 Open** | 打开篮子侧边栏，支持拖拽排序、编辑备注 | - |
 | **Copy** | 一键复制篮子内所有代码为 Markdown（含文件路径） | 工具栏按钮 |
+| **🧺 History** | 浏览最近的篮子快照，支持打开、编辑、删除 | 工具栏按钮 / 命令面板 |
+
+> 💡 底部的“历史记录”面板会自动保存每次篮子更新，也可以通过命令面板快速执行 `🧺 History / Restore / Delete / Edit`。
 
 <p align="center">
   <img src="images/preview-code-context-baskets.png" alt="Code Context Basket 侧边栏界面" width="720">

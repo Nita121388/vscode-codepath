@@ -26,6 +26,7 @@ import { AIEndpointManager } from './managers/AIEndpointManager';
 import { LinePopupManager } from './managers/LinePopupManager';
 import { PreviewSidebarProvider } from './views/PreviewSidebarProvider';
 import { RootSymbolService } from './services/RootSymbolService';
+import { BasketSidebarProvider } from './views/BasketSidebarProvider';
 import { CodePathError } from './types/errors';
 
 /**
@@ -221,8 +222,13 @@ async function initializeManagers(context: vscode.ExtensionContext): Promise<voi
             extensionState.webviewManager,
             extensionState.statusBarManager,
             extensionState.configManager,
-            context
+            context,
+            extensionState.storageManager
         );
+
+        // Initialize MultipleContextManager
+        const multipleContextManager = extensionState.integrationManager.getMultipleContextManager();
+        await multipleContextManager.initialize();
 
         extensionState.aiEndpointManager = new AIEndpointManager(
             extensionState.graphManager,
@@ -410,6 +416,7 @@ function registerViewProviders(context: vscode.ExtensionContext): void {
     }
 
     try {
+        // Register preview view
         const sidebarProvider = new PreviewSidebarProvider(extensionState.webviewManager);
         const registration = vscode.window.registerWebviewViewProvider(
             PreviewSidebarProvider.viewId,
@@ -422,9 +429,26 @@ function registerViewProviders(context: vscode.ExtensionContext): void {
         );
 
         extensionState.disposables.push(registration);
+
+        // Register basket view
+        const multipleContextManager = extensionState.integrationManager?.getMultipleContextManager();
+        if (multipleContextManager) {
+            const basketProvider = new BasketSidebarProvider(multipleContextManager);
+            const basketRegistration = vscode.window.registerWebviewViewProvider(
+                BasketSidebarProvider.viewId,
+                basketProvider,
+                {
+                    webviewOptions: {
+                        retainContextWhenHidden: true
+                    }
+                }
+            );
+            extensionState.disposables.push(basketRegistration);
+            console.log('CodePath: Basket view provider registered');
+        }
     } catch (error) {
-        console.error('CodePath: Failed to register sidebar preview view:', error);
-        vscode.window.showWarningMessage('CodePath: 无法初始化侧边栏预览视图');
+        console.error('CodePath: Failed to register sidebar views:', error);
+        vscode.window.showWarningMessage('CodePath: 无法初始化侧边栏视图');
     }
 }
 

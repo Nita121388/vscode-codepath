@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -244,6 +244,26 @@
         "command": "codepath.openBasketPanel",
         "title": "🧺 Open",
         "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.showBasketHistory",
+        "title": "🧺 History",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.restoreBasketFromHistory",
+        "title": "🧺 Restore Basket From History",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.deleteBasketHistoryEntry",
+        "title": "🧺 Delete Basket History Entry",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.renameBasketHistoryEntry",
+        "title": "🧺 Edit Basket History Entry",
+        "category": "Code Path Marker"
       }
     ],
     "submenus": [
@@ -366,17 +386,17 @@
         {
           "command": "codepath.addToBasket",
           "when": "editorHasSelection",
-          "group": "2_edit@5"
+          "group": "3_basket@1"
         },
         {
           "command": "codepath.clearAndAddToBasket",
           "when": "editorHasSelection",
-          "group": "2_edit@5.1"
+          "group": "3_basket@2"
         },
         {
           "command": "codepath.openBasketPanel",
           "when": "true",
-          "group": "2_edit@6"
+          "group": "3_basket@3"
         }
       ]
     },

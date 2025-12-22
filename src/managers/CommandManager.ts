@@ -8,6 +8,7 @@ import { NodeOrderManager } from './NodeOrderManager';
 import { FeedbackManager } from './FeedbackManager';
 import { FileBackupManager } from './FileBackupManager';
 import { AIGraphBlueprint } from '../types';
+import { BasketHistorySummary } from '../types/codeContext';
 import { CodePathError } from '../types/errors';
 import { executeCommandSafely } from '../utils/vscodeHelpers';
 
@@ -18,6 +19,10 @@ interface CreationContext {
     name: string;
     filePath: string;
     lineNumber: number;
+}
+
+interface HistoryQuickPickItem extends vscode.QuickPickItem {
+    entry: BasketHistorySummary;
 }
 
 /**
@@ -102,6 +107,15 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.clearAllBackups', this.handleClearAllBackups.bind(this));
 
         this.registerCommand(context, 'codepath.copyCodeContext', this.handleCopyCodeContext.bind(this));
+
+        // 代码上下文篮子相关命令
+        this.registerCommand(context, 'codepath.addToBasket', this.handleAddToBasket.bind(this));
+        this.registerCommand(context, 'codepath.clearAndAddToBasket', this.handleClearAndAddToBasket.bind(this));
+        this.registerCommand(context, 'codepath.openBasketPanel', this.handleOpenBasketPanel.bind(this));
+        this.registerCommand(context, 'codepath.showBasketHistory', this.handleShowBasketHistory.bind(this));
+        this.registerCommand(context, 'codepath.restoreBasketFromHistory', this.handleRestoreBasketFromHistory.bind(this));
+        this.registerCommand(context, 'codepath.deleteBasketHistoryEntry', this.handleDeleteBasketHistoryEntry.bind(this));
+        this.registerCommand(context, 'codepath.renameBasketHistoryEntry', this.handleRenameBasketHistoryEntry.bind(this));
 
         // Initialize context state
         this.updateContextState();
@@ -1547,6 +1561,303 @@ export class CommandManager {
         executeCommandSafely('setContext', 'codepath.hasCurrentGraph', state.hasGraph);
     }
 
+    // ==================== Code Context Basket Commands ====================
+
+    /**
+     * Handle adding selected code to basket
+     * 处理将选中代码添加到篮子
+     */
+    private async handleAddToBasket(): Promise<void> {
+        await this.addSelectionToBasket();
+    }
+
+    /**
+     * Handle clearing basket before adding selection
+     * 处理清空篮子后再添加选中代码
+     */
+    private async handleClearAndAddToBasket(): Promise<void> {
+        await this.addSelectionToBasket({ clearBeforeAdd: true });
+    }
+
+    /**
+     * Shared logic for adding selected text into basket
+     */
+    private async addSelectionToBasket(options: { clearBeforeAdd?: boolean } = {}): Promise<void> {
+        const { clearBeforeAdd } = options;
+
+        try {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) {
+                throw new Error('No active editor. Please open a file first.');
+            }
+
+            const selection = editor.selection;
+            if (selection.isEmpty) {
+                throw new Error('No code selected. Please select some code first.');
+            }
+
+            const selectedCode = editor.document.getText(selection);
+            const filePath = editor.document.fileName;
+            const lineNumber = selection.start.line + 1;
+            const lineEndNumber = selection.end.line + 1;
+            const language = editor.document.languageId;
+
+            const note = await vscode.window.showInputBox({
+                prompt: 'Add a note for this code snippet (optional)',
+                placeHolder: 'e.g., "Component initialization logic"'
+            });
+
+            const multipleContextManager = (this.integrationManager as any).getMultipleContextManager?.();
+            if (!multipleContextManager) {
+                throw new Error('Code Context Basket is not initialized. Please try again.');
+            }
+
+            let currentBasket = multipleContextManager.getCurrentBasket();
+            if (!currentBasket) {
+                currentBasket = await multipleContextManager.createBasket('Default Basket');
+                multipleContextManager.setCurrentBasket(currentBasket);
+            }
+
+            if (clearBeforeAdd) {
+                await multipleContextManager.clearBasket();
+                currentBasket = multipleContextManager.getCurrentBasket();
+            }
+
+            if (!currentBasket) {
+                throw new Error('Failed to load basket after clearing.');
+            }
+
+            await multipleContextManager.addItem({
+                code: selectedCode,
+                filePath,
+                lineNumber,
+                lineEndNumber,
+                language,
+                note: note || '',
+                id: '',
+                createdAt: new Date(),
+                order: 0
+            });
+
+            const itemCount = currentBasket.items.length;
+            const successTitle = clearBeforeAdd
+                ? `✅ Basket cleared and code added to "${currentBasket.name}"`
+                : `✅ Code added to basket "${currentBasket.name}"`;
+
+            this.showSuccess(successTitle, `Total items: ${itemCount}`);
+
+            await vscode.commands.executeCommand('codepath.basketView.focus');
+        } catch (error) {
+            const action = clearBeforeAdd ? 'Clear And Add to Basket' : 'Add to Basket';
+            this.handleError(action, error);
+        }
+    }
+
+    /**
+     * Handle opening the basket panel
+     * 处理打开篮子面板
+     */
+  private async handleOpenBasketPanel(): Promise<void> {
+    try {
+      await vscode.commands.executeCommand('codepath.basketView.focus');
+    } catch (error) {
+      this.handleError('Open Basket Panel', error);
+    }
+  }
+
+  /**
+   * 展示历史记录 QuickPick
+   */
+  private async handleShowBasketHistory(): Promise<void> {
+    try {
+      const entry = await this.pickHistoryEntry('选择要打开的 Code Context Basket 历史记录');
+      if (!entry) {
+        return;
+      }
+      await this.restoreHistoryEntryById(entry.historyId);
+    } catch (error) {
+      this.handleError('Show Basket History', error);
+    }
+  }
+
+  /**
+   * 处理从历史记录恢复篮子
+   */
+  private async handleRestoreBasketFromHistory(): Promise<void> {
+    try {
+      const entry = await this.pickHistoryEntry('选择要恢复的历史记录');
+      if (!entry) {
+        return;
+      }
+      await this.restoreHistoryEntryById(entry.historyId);
+    } catch (error) {
+      this.handleError('Restore Basket From History', error);
+    }
+  }
+
+  /**
+   * 处理删除历史记录
+   */
+  private async handleDeleteBasketHistoryEntry(): Promise<void> {
+    try {
+      const entry = await this.pickHistoryEntry('选择要删除的历史记录');
+      if (!entry) {
+        return;
+      }
+
+      const confirmed = await vscode.window.showWarningMessage(
+        `确定要删除 "${entry.name}" 的历史记录吗？删除后无法恢复。`,
+        { modal: true },
+        '删除'
+      );
+      if (confirmed !== '删除') {
+        return;
+      }
+
+      const multipleManager = this.integrationManager.getMultipleContextManager();
+      await multipleManager.deleteHistoryEntry(entry.historyId);
+      this.showSuccess('历史记录已删除', entry.name);
+    } catch (error) {
+      this.handleError('Delete Basket History Entry', error);
+    }
+  }
+
+  /**
+   * 处理编辑历史记录元数据
+   */
+  private async handleRenameBasketHistoryEntry(): Promise<void> {
+    try {
+      const entry = await this.pickHistoryEntry('选择要编辑的历史记录');
+      if (!entry) {
+        return;
+      }
+
+      const multipleManager = this.integrationManager.getMultipleContextManager();
+      const detail = await multipleManager.getHistoryEntry(entry.historyId);
+
+      const newName = await vscode.window.showInputBox({
+        prompt: '输入新的历史记录名称',
+        value: detail?.name || entry.name,
+        ignoreFocusOut: true
+      });
+
+      if (!newName || newName.trim().length === 0) {
+        return;
+      }
+
+      const newDescription = await vscode.window.showInputBox({
+        prompt: '更新描述（可选）',
+        value: detail?.description || '',
+        ignoreFocusOut: true
+      });
+
+      const newTags = await vscode.window.showInputBox({
+        prompt: '更新标签（用逗号分隔，可选）',
+        value: detail?.tags?.join(', ') || '',
+        ignoreFocusOut: true
+      });
+
+      const tags = newTags
+        ? newTags
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0)
+        : detail?.tags;
+
+      await multipleManager.updateHistoryEntry(entry.historyId, {
+        name: newName,
+        description: newDescription && newDescription.trim().length > 0 ? newDescription.trim() : undefined,
+        tags
+      });
+
+      this.showSuccess('历史记录已更新', newName.trim());
+    } catch (error) {
+      this.handleError('Edit Basket History Entry', error);
+    }
+  }
+
+  /**
+   * 执行恢复操作的共享逻辑
+   */
+  private async restoreHistoryEntryById(historyId: string): Promise<void> {
+    const multipleManager = this.integrationManager.getMultipleContextManager();
+    const restored = await multipleManager.restoreBasketFromHistory(historyId, {
+      asNew: false,
+      setActive: true
+    });
+
+    if (!restored) {
+      void vscode.window.showWarningMessage('未找到目标历史记录，可能已被删除。');
+      return;
+    }
+
+    this.showSuccess('已打开历史篮子', `名称: ${restored.name}，片段数: ${restored.items.length}`);
+    await vscode.commands.executeCommand('codepath.basketView.focus');
+  }
+
+  /**
+   * 展示历史 QuickPick 并返回用户选择
+   */
+  private async pickHistoryEntry(
+    placeHolder: string
+  ): Promise<BasketHistorySummary | null> {
+    const multipleManager = this.integrationManager.getMultipleContextManager();
+    const historyEntries = await multipleManager.getHistorySummaries();
+
+    if (historyEntries.length === 0) {
+      void vscode.window.showInformationMessage('暂无可用的篮子历史记录。');
+      return null;
+    }
+
+    const items: HistoryQuickPickItem[] = historyEntries.map(entry => ({
+      label: entry.name,
+      description: `${entry.itemCount} snippets`,
+      detail: this.formatHistoryDetail(entry),
+      entry
+    }));
+
+    const selection = await vscode.window.showQuickPick(items, {
+      placeHolder,
+      matchOnDetail: true,
+      ignoreFocusOut: true
+    });
+
+    return selection?.entry ?? null;
+  }
+
+  /**
+   * 构建历史条目的详情文本
+   */
+  private formatHistoryDetail(entry: BasketHistorySummary): string {
+    const detailParts: string[] = [
+      `创建: ${this.formatDateTime(entry.createdAt)}`,
+      `更新: ${this.formatDateTime(entry.updatedAt)}`
+    ];
+
+    if (entry.tags?.length) {
+      detailParts.push(`标签: ${entry.tags.join(', ')}`);
+    }
+
+    return detailParts.join(' | ');
+  }
+
+  private formatDateTime(date: Date | undefined): string {
+    if (!date) {
+      return '-';
+    }
+
+    try {
+      return new Intl.DateTimeFormat('zh-CN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch {
+      return date.toLocaleString();
+    }
+  }
+
     /**
      * Dispose of all resources
      */
@@ -1554,7 +1865,7 @@ export class CommandManager {
         this.feedbackManager.dispose();
         this.disposables.forEach(disposable => disposable.dispose());
         this.disposables = [];
-        
+
         // Dispose of clipboard manager
         if (this.clipboardManager) {
             this.clipboardManager.dispose();

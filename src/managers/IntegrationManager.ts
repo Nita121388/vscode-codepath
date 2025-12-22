@@ -8,6 +8,9 @@ import { ConfigurationManager } from './ConfigurationManager';
 import { ClipboardManager } from './ClipboardManager';
 import { NodeOrderManager } from './NodeOrderManager';
 import { FeedbackManager } from './FeedbackManager';
+import { MultipleContextManager } from './MultipleContextManager';
+import { StorageManager } from './StorageManager';
+import { BasketHistoryManager } from './BasketHistoryManager';
 import { CodePathError } from '../types/errors';
 import { Graph, Node } from '../types';
 import { INodeManager } from '../interfaces';
@@ -26,6 +29,9 @@ export class IntegrationManager {
     private clipboardManager: ClipboardManager;
     private nodeOrderManager: NodeOrderManager;
     private feedbackManager: FeedbackManager;
+    private multipleContextManager: MultipleContextManager;
+    private basketHistoryManager: BasketHistoryManager;
+    private storageManager: StorageManager;
     private context: vscode.ExtensionContext;
     private disposables: vscode.Disposable[] = [];
     private lastGraphUpdateTime: number = 0;
@@ -37,7 +43,8 @@ export class IntegrationManager {
         webviewManager: WebviewManager,
         statusBarManager: StatusBarManager,
         configManager: ConfigurationManager,
-        context: vscode.ExtensionContext
+        context: vscode.ExtensionContext,
+        storageManager?: StorageManager
     ) {
         this.graphManager = graphManager;
         this.nodeManager = nodeManager;
@@ -51,6 +58,15 @@ export class IntegrationManager {
         this.clipboardManager = new ClipboardManager(nodeManager, graphManager);
         this.nodeOrderManager = new NodeOrderManager(nodeManager, graphManager);
         this.feedbackManager = new FeedbackManager();
+
+        // Initialize MultipleContextManager
+        this.storageManager = storageManager || new StorageManager();
+        this.basketHistoryManager = new BasketHistoryManager(this.storageManager);
+        this.multipleContextManager = new MultipleContextManager(
+            this.storageManager,
+            undefined,
+            this.basketHistoryManager
+        );
 
         this.setupIntegration();
     }
@@ -1271,6 +1287,21 @@ export class IntegrationManager {
      */
     public getNodeOrderManager(): NodeOrderManager {
         return this.nodeOrderManager;
+    }
+
+    /**
+     * Gets the multiple context manager
+     * 获取多段上下文管理器
+     */
+    public getMultipleContextManager(): MultipleContextManager {
+        return this.multipleContextManager;
+    }
+
+    /**
+     * 获取篮子历史管理器
+     */
+    public getBasketHistoryManager(): BasketHistoryManager {
+        return this.basketHistoryManager;
     }
 
     /**

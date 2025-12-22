@@ -8,10 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+## [0.3.0] - 2025-12-22
+
+### Added
 - **Code Context Basket productivity commands** – Added `🧺 Clear And Add` to reset the current basket before capturing a new snippet, plus a “Copy as Markdown” action in the basket sidebar for one-click sharing.
+- **Code Context Basket history timeline** – Automatically records every basket snapshot with restore, delete, and edit operations surfaced via commands and the sidebar history panel.
 
 ### Changed
 - **Command menu readability** – Path-related commands now use the road-sign emoji (`🪧`) and backup operations use the archive emoji (`🗂️`) to make right-click menus easier to scan.
+- **Context menu grouping** – Split `Copy Code Context` and `Line Content Popup Editor` from `🧺 Code Context Basket` actions for clearer scanning.
+- **History deletion behavior** – Removed soft-delete support; deleting a basket history entry now permanently removes it.
+- **Basket webview simplification** – Hid the `Load`, `Refresh`, and `More Actions` buttons to keep the UI focused on core flows.
 - **Unified toolbar styling** – The preview panel and Code Context Basket now share the same pill-style toolbar buttons, ensuring consistent visuals between the two webviews.
 
 ## [0.2.8] - 2025-12-11
