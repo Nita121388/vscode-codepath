@@ -532,6 +532,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "package:vsix": "npx @vscode/vsce@2.32.0 package",
+    "release:check": "npm run lint && npm run test:release && npm run package:vsix",
     "test": "node ./out/test/runTest.js",
     "test:release": "vitest run src/services/FileReferenceResolver.test.ts src/managers/CommandManager.test.ts",
     "test:unit": "vitest run",
