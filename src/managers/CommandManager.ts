@@ -11,6 +11,7 @@ import { AIGraphBlueprint } from '../types';
 import { BasketHistorySummary } from '../types/codeContext';
 import { CodePathError } from '../types/errors';
 import { executeCommandSafely } from '../utils/vscodeHelpers';
+import { FileReferenceResolver, ParsedTextReference, ResolvedTextReference } from '../services/FileReferenceResolver';
 
 /**
  * Context information for creating nodes
@@ -25,6 +26,10 @@ interface HistoryQuickPickItem extends vscode.QuickPickItem {
     entry: BasketHistorySummary;
 }
 
+interface TextReferenceQuickPickItem extends vscode.QuickPickItem {
+    uri: vscode.Uri;
+}
+
 /**
  * Manages VS Code command integration and context menu functionality
  */
@@ -36,6 +41,7 @@ export class CommandManager {
     private nodeOrderManager: NodeOrderManager;
     private feedbackManager: FeedbackManager;
     private fileBackupManager: FileBackupManager;
+    private readonly fileReferenceResolver: FileReferenceResolver;
     private disposables: vscode.Disposable[] = [];
 
     constructor(
@@ -51,6 +57,7 @@ export class CommandManager {
         this.nodeOrderManager = new NodeOrderManager(nodeManager, graphManager);
         this.feedbackManager = new FeedbackManager();
         this.fileBackupManager = fileBackupManager || new FileBackupManager();
+        this.fileReferenceResolver = new FileReferenceResolver();
     }
 
     /**
@@ -74,6 +81,8 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.pasteNode', this.handlePasteNode.bind(this));
         this.registerCommand(context, 'codepath.cutNode', this.handleCutNode.bind(this));
         this.registerCommand(context, 'codepath.copyNodeFilePath', this.handleCopyNodeFilePath.bind(this));
+        this.registerCommand(context, 'codepath.openTextReference', this.handleOpenTextReference.bind(this));
+        this.registerCommand(context, 'codepath.openTextReferenceAndSetBreakpoint', this.handleOpenTextReferenceAndSetBreakpoint.bind(this));
         
         // Register node order commands
         this.registerCommand(context, 'codepath.moveNodeUp', this.handleMoveNodeUp.bind(this));
@@ -1229,6 +1238,190 @@ export class CommandManager {
         } catch (error) {
             this.handleError('复制代码上下文', error);
         }
+    }
+
+    private async handleOpenTextReference(): Promise<void> {
+        await this.handleOpenTextReferenceInternal({ setBreakpoint: false });
+    }
+
+    private async handleOpenTextReferenceAndSetBreakpoint(): Promise<void> {
+        await this.handleOpenTextReferenceInternal({ setBreakpoint: true });
+    }
+
+    private async handleOpenTextReferenceInternal(options: { setBreakpoint: boolean }): Promise<void> {
+        const operation = options.setBreakpoint ? '根据文本引用定位并添加断点' : '根据文本引用定位';
+
+        try {
+            const rawInput = await this.resolveTextReferenceInput();
+            if (!rawInput) {
+                this.showWarning('未提供可解析的文件引用');
+                return;
+            }
+
+            const resolvedReference = await this.fileReferenceResolver.resolveReference(rawInput);
+            const targetUri = await this.pickTextReferenceCandidate(resolvedReference);
+            if (!targetUri) {
+                return;
+            }
+
+            const openResult = await this.openReferenceDocument(targetUri, resolvedReference.reference);
+            const breakpointCreated = options.setBreakpoint
+                ? this.ensureBreakpointAt(targetUri, openResult.actualLineNumber)
+                : false;
+            const displayPath = this.getDisplayPath(targetUri);
+            const detail = openResult.actualLineNumber === resolvedReference.reference.lineNumber
+                ? `${displayPath}#L${openResult.actualLineNumber}`
+                : `${displayPath}#L${openResult.actualLineNumber}（原始请求 #L${resolvedReference.reference.lineNumber} 超出文件范围）`;
+
+            if (options.setBreakpoint) {
+                const message = breakpointCreated ? '已打开文件并添加断点' : '已打开文件，目标行已存在断点';
+                this.showSuccess(message, detail);
+                return;
+            }
+
+            this.showSuccess('已打开文件并定位到目标行', detail);
+        } catch (error) {
+            this.handleError(operation, error);
+        }
+    }
+
+    private async resolveTextReferenceInput(): Promise<string | null> {
+        const selectedText = this.getSelectedEditorText();
+        if (selectedText && this.fileReferenceResolver.parseReference(selectedText)) {
+            return selectedText;
+        }
+
+        const clipboardText = (await vscode.env.clipboard.readText()).trim();
+        if (clipboardText && this.fileReferenceResolver.parseReference(clipboardText)) {
+            return clipboardText;
+        }
+
+        const input = await vscode.window.showInputBox({
+            prompt: '输入文件引用，例如 ReagentGridView.cs#L794',
+            placeHolder: '支持 file.cs#L123、src/file.cs:123、path/to/file.cs#L123-L130',
+            value: selectedText || clipboardText
+        });
+
+        return input?.trim() || null;
+    }
+
+    private getSelectedEditorText(): string {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return '';
+        }
+
+        const selection = editor.selection;
+        if (!selection || selection.isEmpty) {
+            return '';
+        }
+
+        return editor.document.getText(selection).trim();
+    }
+
+    private async pickTextReferenceCandidate(resolvedReference: ResolvedTextReference): Promise<vscode.Uri | null> {
+        const { reference, candidates } = resolvedReference;
+        if (candidates.length === 1) {
+            return candidates[0];
+        }
+
+        const items: TextReferenceQuickPickItem[] = candidates.map(uri => ({
+            label: path.basename(uri.fsPath),
+            description: `${this.getDisplayPath(uri)}#L${reference.lineNumber}`,
+            detail: uri.fsPath,
+            uri
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: `找到 ${items.length} 个匹配文件，请选择要打开的目标`
+        });
+
+        return selected?.uri ?? null;
+    }
+
+    private async openReferenceDocument(
+        uri: vscode.Uri,
+        reference: ParsedTextReference
+    ): Promise<{ actualLineNumber: number; actualColumnNumber: number; actualEndLineNumber?: number }> {
+        const document = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(document, {
+            preserveFocus: false,
+            preview: false
+        });
+
+        const maximumLineNumber = Math.max(1, document.lineCount || 1);
+        const actualLineNumber = Math.min(Math.max(reference.lineNumber, 1), maximumLineNumber);
+        const actualEndLineNumber = reference.endLineNumber
+            ? Math.min(Math.max(reference.endLineNumber, actualLineNumber), maximumLineNumber)
+            : undefined;
+        const actualColumnNumber = this.clampColumnNumber(document, actualLineNumber, reference.columnNumber);
+        const startPosition = new vscode.Position(actualLineNumber - 1, actualColumnNumber - 1);
+        const endPosition = actualEndLineNumber
+            ? new vscode.Position(actualEndLineNumber - 1, this.getLineLength(document, actualEndLineNumber - 1))
+            : startPosition;
+        const range = new vscode.Range(startPosition, endPosition);
+
+        editor.selection = new vscode.Selection(startPosition, endPosition);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+        return { actualLineNumber, actualColumnNumber, actualEndLineNumber };
+    }
+
+    private clampColumnNumber(document: vscode.TextDocument, lineNumber: number, requestedColumnNumber?: number): number {
+        const requestedColumn = requestedColumnNumber ?? 1;
+        const lineLength = this.getLineLength(document, lineNumber - 1);
+        return Math.min(Math.max(requestedColumn, 1), lineLength + 1);
+    }
+
+    private getLineLength(document: vscode.TextDocument, zeroBasedLineNumber: number): number {
+        if (typeof document.lineAt !== 'function') {
+            return 0;
+        }
+
+        try {
+            return document.lineAt(zeroBasedLineNumber).text.length;
+        } catch {
+            return 0;
+        }
+    }
+
+    private ensureBreakpointAt(uri: vscode.Uri, lineNumber: number): boolean {
+        if (this.hasSourceBreakpointAt(uri, lineNumber)) {
+            return false;
+        }
+
+        const position = new vscode.Position(lineNumber - 1, 0);
+        const range = new vscode.Range(position, position);
+        const location = new vscode.Location(uri, range);
+
+        vscode.debug.addBreakpoints([
+            new vscode.SourceBreakpoint(location, true)
+        ]);
+
+        return true;
+    }
+
+    private hasSourceBreakpointAt(uri: vscode.Uri, lineNumber: number): boolean {
+        const normalizedTargetPath = uri.fsPath.replace(/\\/g, '/').toLowerCase();
+        const zeroBasedLineNumber = lineNumber - 1;
+
+        return vscode.debug.breakpoints.some((breakpoint: any) => {
+            const breakpointPath = breakpoint?.location?.uri?.fsPath;
+            const breakpointLine = breakpoint?.location?.range?.start?.line;
+
+            return typeof breakpointPath === 'string'
+                && breakpointLine === zeroBasedLineNumber
+                && breakpointPath.replace(/\\/g, '/').toLowerCase() === normalizedTargetPath;
+        });
+    }
+
+    private getDisplayPath(uri: vscode.Uri): string {
+        const relativePath = vscode.workspace.asRelativePath(uri);
+        if (relativePath && relativePath !== uri.fsPath) {
+            return relativePath;
+        }
+
+        return uri.fsPath;
     }
 
     /**

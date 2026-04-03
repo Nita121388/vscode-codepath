@@ -8,52 +8,131 @@ import { Graph } from '../models/Graph';
 import { Node } from '../models/Node';
 
 // Mock VS Code API
-vi.mock('vscode', () => ({
-    window: {
-        activeTextEditor: null,
-        showErrorMessage: vi.fn(),
-        showInformationMessage: vi.fn(),
-        showWarningMessage: vi.fn(),
-        showQuickPick: vi.fn(),
-        showTextDocument: vi.fn(),
-        showInputBox: vi.fn(),
-        showSaveDialog: vi.fn(),
-        showOpenDialog: vi.fn(),
-        createOutputChannel: vi.fn().mockReturnValue({
-            appendLine: vi.fn(),
-            dispose: vi.fn()
-        })
-    },
-    workspace: {
-        openTextDocument: vi.fn(),
-        fs: {
-            writeFile: vi.fn(),
-            readFile: vi.fn(),
-            stat: vi.fn()
+vi.mock('vscode', () => {
+    class Position {
+        public line: number;
+        public character: number;
+
+        constructor(line: number, character: number) {
+            this.line = line;
+            this.character = character;
         }
-    },
-    commands: {
-        registerCommand: vi.fn(),
-        executeCommand: vi.fn()
-    },
-    env: {
-        clipboard: {
-            writeText: vi.fn(),
-            readText: vi.fn()
-        },
-        openExternal: vi.fn()
-    },
-    Position: vi.fn(),
-    Selection: vi.fn(),
-    Range: vi.fn(),
-    Uri: {
-        file: vi.fn()
-    },
-    FileType: {
-        File: 1,
-        Directory: 2
     }
-}));
+
+    class Range {
+        public start: Position;
+        public end: Position;
+
+        constructor(start: Position, end: Position) {
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    class Selection extends Range {
+        public anchor: Position;
+        public active: Position;
+
+        constructor(anchor: Position, active: Position) {
+            super(anchor, active);
+            this.anchor = anchor;
+            this.active = active;
+        }
+
+        get isEmpty(): boolean {
+            return this.anchor.line === this.active.line && this.anchor.character === this.active.character;
+        }
+    }
+
+    class Location {
+        public uri: any;
+        public range: Range;
+
+        constructor(uri: any, range: Range) {
+            this.uri = uri;
+            this.range = range;
+        }
+    }
+
+    class SourceBreakpoint {
+        public location: Location;
+        public enabled: boolean;
+
+        constructor(location: Location, enabled = true) {
+            this.location = location;
+            this.enabled = enabled;
+        }
+    }
+
+    const debug = {
+        breakpoints: [] as any[],
+        addBreakpoints: vi.fn((breakpoints: any[]) => {
+            debug.breakpoints.push(...breakpoints);
+        })
+    };
+
+    return {
+        window: {
+            activeTextEditor: null,
+            showErrorMessage: vi.fn(() => Promise.resolve(undefined)),
+            showInformationMessage: vi.fn(() => Promise.resolve(undefined)),
+            showWarningMessage: vi.fn(() => Promise.resolve(undefined)),
+            showQuickPick: vi.fn(() => Promise.resolve(undefined)),
+            showTextDocument: vi.fn(() => Promise.resolve({
+                selection: undefined,
+                revealRange: vi.fn()
+            })),
+            showInputBox: vi.fn(() => Promise.resolve(undefined)),
+            showSaveDialog: vi.fn(),
+            showOpenDialog: vi.fn(),
+            createOutputChannel: vi.fn().mockReturnValue({
+                appendLine: vi.fn(),
+                dispose: vi.fn()
+            })
+        },
+        workspace: {
+            workspaceFolders: [{ uri: { fsPath: 'C:/test/workspace', scheme: 'file' } }],
+            asRelativePath: vi.fn((resource: any) => {
+                const fsPath = typeof resource === 'string' ? resource : resource?.fsPath || '';
+                return fsPath.replace(/^C:\/test\/workspace\/?/i, '');
+            }),
+            openTextDocument: vi.fn(),
+            findFiles: vi.fn(() => Promise.resolve([])),
+            fs: {
+                writeFile: vi.fn(),
+                readFile: vi.fn(),
+                stat: vi.fn()
+            }
+        },
+        commands: {
+            registerCommand: vi.fn(),
+            executeCommand: vi.fn(() => Promise.resolve(undefined))
+        },
+        env: {
+            clipboard: {
+                writeText: vi.fn(),
+                readText: vi.fn()
+            },
+            openExternal: vi.fn()
+        },
+        debug,
+        Position,
+        Selection,
+        Range,
+        Location,
+        SourceBreakpoint,
+        TextEditorRevealType: {
+            InCenter: 1
+        },
+        Uri: {
+            file: vi.fn((fsPath: string) => ({ fsPath, scheme: 'file' }))
+        },
+        FileType: {
+            File: 1,
+            Directory: 2
+        }
+    };
+});
 
 describe('CommandManager', () => {
     let commandManager: CommandManager;
@@ -116,18 +195,23 @@ describe('CommandManager', () => {
         (mockIntegrationManager.showPreview as Mock).mockResolvedValue(undefined);
         (mockIntegrationManager.switchGraphWorkflow as Mock).mockResolvedValue(undefined);
         (vscode.window.activeTextEditor as any) = null;
+        (vscode.workspace.findFiles as Mock).mockResolvedValue([]);
+        (vscode.workspace.fs.stat as Mock).mockReset();
+        (vscode.debug.addBreakpoints as Mock).mockClear();
+        (vscode.debug as any).breakpoints = [];
     });
 
     describe('registerCommands', () => {
         it('should register all commands', () => {
             commandManager.registerCommands(mockContext);
 
-            // AI features disabled, so 31 commands instead of 32
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(31);
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(45);
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createChildNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createParentNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createBroNode', expect.any(Function));
+            expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openTextReference', expect.any(Function));
+            expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openTextReferenceAndSetBreakpoint', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.switchCurrentNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openPanel', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.refreshPreview', expect.any(Function));
@@ -150,6 +234,123 @@ describe('CommandManager', () => {
 
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentNode', true);
             expect(vscode.commands.executeCommand).toHaveBeenCalledWith('setContext', 'codepath.hasCurrentGraph', true);
+        });
+
+        it('should open text reference from current selection', async () => {
+            const targetUri = { fsPath: 'C:/test/workspace/src/ReagentGridView.cs', scheme: 'file' };
+            const document = { uri: targetUri, lineCount: 900 };
+            const editor = { selection: undefined, revealRange: vi.fn() };
+
+            (vscode.window.activeTextEditor as any) = {
+                selection: { isEmpty: false },
+                document: {
+                    getText: vi.fn().mockReturnValue('ReagentGridView.cs#L794')
+                }
+            };
+            (vscode.workspace.fs.stat as Mock).mockRejectedValue(new Error('not found'));
+            (vscode.workspace.findFiles as Mock).mockResolvedValue([targetUri]);
+            (vscode.workspace.openTextDocument as Mock).mockResolvedValue(document);
+            (vscode.window.showTextDocument as Mock).mockResolvedValue(editor);
+
+            commandManager.registerCommands(mockContext);
+            const handler = (vscode.commands.registerCommand as Mock).mock.calls
+                .find(call => call[0] === 'codepath.openTextReference')?.[1];
+
+            await handler();
+
+            expect(vscode.workspace.findFiles).toHaveBeenCalledWith('**/ReagentGridView.cs', expect.any(String), 100);
+            expect(vscode.workspace.openTextDocument).toHaveBeenCalledWith(targetUri);
+            expect(editor.revealRange).toHaveBeenCalled();
+            expect(vscode.debug.addBreakpoints).not.toHaveBeenCalled();
+        });
+
+        it('should open text reference and add breakpoint', async () => {
+            const targetUri = { fsPath: 'C:\\test\\workspace\\src\\ReagentGridView.cs', scheme: 'file' };
+            const document = { uri: targetUri, lineCount: 120 };
+            const editor = { selection: undefined, revealRange: vi.fn() };
+
+            (vscode.window.activeTextEditor as any) = {
+                selection: { isEmpty: false },
+                document: {
+                    getText: vi.fn().mockReturnValue('src/ReagentGridView.cs:48')
+                }
+            };
+            (vscode.workspace.fs.stat as Mock).mockResolvedValue({ type: vscode.FileType.File });
+            (vscode.workspace.openTextDocument as Mock).mockResolvedValue(document);
+            (vscode.window.showTextDocument as Mock).mockResolvedValue(editor);
+
+            commandManager.registerCommands(mockContext);
+            const handler = (vscode.commands.registerCommand as Mock).mock.calls
+                .find(call => call[0] === 'codepath.openTextReferenceAndSetBreakpoint')?.[1];
+
+            await handler();
+
+            expect(vscode.workspace.openTextDocument).toHaveBeenCalledWith(targetUri);
+            expect(vscode.debug.addBreakpoints).toHaveBeenCalledTimes(1);
+
+            const addedBreakpoints = (vscode.debug.addBreakpoints as Mock).mock.calls[0][0];
+            expect(addedBreakpoints[0].location.uri.fsPath).toBe(targetUri.fsPath);
+            expect(addedBreakpoints[0].location.range.start.line).toBe(47);
+        });
+
+        it('should move the cursor to the parsed column', async () => {
+            const targetUri = { fsPath: 'C:/test/workspace/src/ReagentGridView.cs', scheme: 'file' };
+            const document = {
+                uri: targetUri,
+                lineCount: 120,
+                lineAt: vi.fn(() => ({ text: '0123456789' }))
+            };
+            const editor = { selection: undefined, revealRange: vi.fn() };
+
+            (vscode.window.activeTextEditor as any) = {
+                selection: { isEmpty: false },
+                document: {
+                    getText: vi.fn().mockReturnValue('src/ReagentGridView.cs:48:7')
+                }
+            };
+            (vscode.workspace.fs.stat as Mock).mockResolvedValue({ type: vscode.FileType.File });
+            (vscode.workspace.openTextDocument as Mock).mockResolvedValue(document);
+            (vscode.window.showTextDocument as Mock).mockResolvedValue(editor);
+
+            commandManager.registerCommands(mockContext);
+            const handler = (vscode.commands.registerCommand as Mock).mock.calls
+                .find(call => call[0] === 'codepath.openTextReference')?.[1];
+
+            await handler();
+
+            expect((editor.selection as any).start.line).toBe(47);
+            expect((editor.selection as any).start.character).toBe(6);
+            expect((editor.selection as any).end.character).toBe(6);
+        });
+
+        it('should select the parsed line range', async () => {
+            const targetUri = { fsPath: 'C:/test/workspace/src/ReagentGridView.cs', scheme: 'file' };
+            const document = {
+                uri: targetUri,
+                lineCount: 120,
+                lineAt: vi.fn(() => ({ text: 'range-line' }))
+            };
+            const editor = { selection: undefined, revealRange: vi.fn() };
+
+            (vscode.window.activeTextEditor as any) = {
+                selection: { isEmpty: false },
+                document: {
+                    getText: vi.fn().mockReturnValue('src/ReagentGridView.cs#L48-L50')
+                }
+            };
+            (vscode.workspace.fs.stat as Mock).mockResolvedValue({ type: vscode.FileType.File });
+            (vscode.workspace.openTextDocument as Mock).mockResolvedValue(document);
+            (vscode.window.showTextDocument as Mock).mockResolvedValue(editor);
+
+            commandManager.registerCommands(mockContext);
+            const handler = (vscode.commands.registerCommand as Mock).mock.calls
+                .find(call => call[0] === 'codepath.openTextReference')?.[1];
+
+            await handler();
+
+            expect((editor.selection as any).start.line).toBe(47);
+            expect((editor.selection as any).end.line).toBe(49);
+            expect((editor.selection as any).end.character).toBe('range-line'.length);
         });
 
         describe('handleCopyNodeFilePath', () => {
@@ -1981,6 +2182,8 @@ describe('CommandManager', () => {
                 'codepath.markAsBroNode',
                 'codepath.copyNode',
                 'codepath.copyNodeFilePath',
+                'codepath.openTextReference',
+                'codepath.openTextReferenceAndSetBreakpoint',
                 'codepath.pasteNode',
                 'codepath.cutNode',
                 'codepath.moveNodeUp',

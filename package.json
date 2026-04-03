@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -103,6 +103,16 @@
       {
         "command": "codepath.copyCodeContext",
         "title": "📋 Copy Code Context",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.openTextReference",
+        "title": "🔎 跳转到引用",
+        "category": "Code Path Marker"
+      },
+      {
+        "command": "codepath.openTextReferenceAndSetBreakpoint",
+        "title": "🛑 跳转并加断点",
         "category": "Code Path Marker"
       },
       {
@@ -329,6 +339,16 @@
           "group": "2_edit@4"
         },
         {
+          "command": "codepath.openTextReference",
+          "when": "editorHasSelection",
+          "group": "2_edit@4.1"
+        },
+        {
+          "command": "codepath.openTextReferenceAndSetBreakpoint",
+          "when": "editorHasSelection",
+          "group": "2_edit@4.2"
+        },
+        {
           "command": "codepath.showSelectionPopup",
           "when": "codepath.hasSelectionForPopup",
           "group": "2_edit@4.5"
@@ -511,7 +531,9 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
+    "package:vsix": "npx @vscode/vsce@2.32.0 package",
     "test": "node ./out/test/runTest.js",
+    "test:release": "vitest run src/services/FileReferenceResolver.test.ts src/managers/CommandManager.test.ts",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest"
   },
