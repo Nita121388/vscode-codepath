@@ -2,7 +2,7 @@
   "name": "codepath-extension",
   "displayName": "Code Path Marker",
   "description": "Mark and visualize code execution paths with interactive node-based graphs",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "publisher": "Nita",
   "author": {
     "name": "Nita"
@@ -538,7 +538,7 @@
     "test:unit:watch": "vitest"
   },
   "devDependencies": {
-    "@types/node": "16.x",
+    "@types/node": "^20.19.37",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
