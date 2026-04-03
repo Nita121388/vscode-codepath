@@ -285,11 +285,13 @@ describe('CommandManager', () => {
 
             await handler();
 
-            expect(vscode.workspace.openTextDocument).toHaveBeenCalledWith(targetUri);
+            const openedUri = (vscode.workspace.openTextDocument as Mock).mock.calls[0][0];
+            expect(openedUri.scheme).toBe('file');
+            expect(openedUri.fsPath.replace(/\\/g, '/')).toBe('C:/test/workspace/src/ReagentGridView.cs');
             expect(vscode.debug.addBreakpoints).toHaveBeenCalledTimes(1);
 
             const addedBreakpoints = (vscode.debug.addBreakpoints as Mock).mock.calls[0][0];
-            expect(addedBreakpoints[0].location.uri.fsPath).toBe(targetUri.fsPath);
+            expect(addedBreakpoints[0].location.uri.fsPath.replace(/\\/g, '/')).toBe('C:/test/workspace/src/ReagentGridView.cs');
             expect(addedBreakpoints[0].location.range.start.line).toBe(47);
         });
 
