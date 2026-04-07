@@ -119,7 +119,7 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
 
     const historyHtml =
       recentHistory.length > 0
-        ? recentHistory.map(entry => this.renderHistoryEntry(entry)).join('')
+        ? recentHistory.map((entry, index) => this.renderHistoryEntry(entry, index)).join('')
         : '<div class="history-empty">暂无历史记录</div>';
 
     return `
@@ -231,6 +231,29 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
             gap: 12px;
           }
 
+          .history-header-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .history-toggle-btn {
+            min-width: 22px;
+            height: 22px;
+            border: 1px solid var(--vscode-editorGroup-border);
+            border-radius: 3px;
+            background: var(--vscode-sideBar-background);
+            color: var(--vscode-foreground);
+            font-size: 11px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+          }
+
+          .history-toggle-btn:hover {
+            background: var(--vscode-editorGroupHeader-tabsBackground);
+          }
+
           .history-title {
             font-weight: 600;
             font-size: 12px;
@@ -239,6 +262,10 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
           .history-subtitle {
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
+          }
+
+          .history-panel.collapsed .history-list {
+            display: none;
           }
 
           .history-list {
@@ -252,17 +279,22 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
           .history-entry {
             border: 1px solid var(--vscode-editorGroup-border);
             border-radius: 4px;
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
+            background: var(--vscode-sideBar-background);
+            overflow: hidden;
           }
 
-          .history-entry-header {
+          .history-entry-summary {
+            list-style: none;
+            cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 8px;
+            padding: 8px;
+          }
+
+          .history-entry-summary::-webkit-details-marker {
+            display: none;
           }
 
           .history-entry-name {
@@ -270,14 +302,40 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
             display: flex;
             align-items: center;
             gap: 6px;
+            min-width: 0;
+          }
+
+          .history-entry-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .history-entry-caret {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground);
+            transform: rotate(0deg);
+            transition: transform 0.2s ease;
+          }
+
+          .history-entry[open] .history-entry-caret {
+            transform: rotate(90deg);
           }
 
           .history-meta {
             display: flex;
             flex-wrap: wrap;
+            justify-content: flex-end;
             gap: 8px;
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
+          }
+
+          .history-entry-body {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 0 8px 8px;
           }
 
           .history-tags {
@@ -685,6 +743,15 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
                 <div class="history-title">历史记录</div>
                 <div class="history-subtitle">最近保存的篮子快照</div>
               </div>
+              <div class="history-header-actions">
+                <span class="history-badge" title="Recent history entries">${recentHistory.length}</span>
+                <button
+                  class="history-toggle-btn"
+                  data-action="toggle-history"
+                  aria-expanded="true"
+                  title="折叠/展开历史记录"
+                >▼</button>
+              </div>
             </div>
             <div class="history-list">
               ${historyHtml}
@@ -725,16 +792,107 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
             });
           });
 
+          const persistedState = vscode.getState() || {};
+          let historyCollapsed = Boolean(persistedState.historyCollapsed);
+          const expandedHistoryIds = new Set(
+            Array.isArray(persistedState.expandedHistoryIds)
+              ? persistedState.expandedHistoryIds.filter((id) => typeof id === 'string')
+              : []
+          );
+
+          const historyPanel = document.querySelector('.history-panel');
+          const historyToggleBtn = document.querySelector('[data-action="toggle-history"]');
           const historyList = document.querySelector('.history-list');
-          if (historyList) {
+
+          const persistHistoryState = () => {
+            vscode.setState({
+              ...persistedState,
+              historyCollapsed,
+              expandedHistoryIds: Array.from(expandedHistoryIds)
+            });
+          };
+
+          const applyHistoryPanelState = () => {
+            if (!(historyPanel instanceof HTMLElement)) {
+              return;
+            }
+
+            historyPanel.classList.toggle('collapsed', historyCollapsed);
+            if (historyToggleBtn instanceof HTMLElement) {
+              historyToggleBtn.textContent = historyCollapsed ? '▶' : '▼';
+              historyToggleBtn.setAttribute('aria-expanded', String(!historyCollapsed));
+            }
+          };
+
+          if (historyToggleBtn instanceof HTMLElement) {
+            historyToggleBtn.addEventListener('click', (event) => {
+              event.preventDefault();
+              historyCollapsed = !historyCollapsed;
+              applyHistoryPanelState();
+              persistHistoryState();
+            });
+          }
+
+          if (historyList instanceof HTMLElement) {
+            const historyDetails = Array.from(
+              historyList.querySelectorAll('details.history-entry[data-history-entry]')
+            );
+
+            if (historyDetails.length > 0) {
+              if (expandedHistoryIds.size === 0) {
+                const firstEntry = historyDetails[0];
+                const firstHistoryId = firstEntry.getAttribute('data-history-entry');
+                if (firstHistoryId) {
+                  expandedHistoryIds.add(firstHistoryId);
+                }
+              }
+
+              historyDetails.forEach((entry) => {
+                const historyId = entry.getAttribute('data-history-entry');
+                if (!historyId) {
+                  return;
+                }
+                entry.open = expandedHistoryIds.has(historyId);
+              });
+            }
+
+            historyList.addEventListener('toggle', (event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLDetailsElement)) {
+                return;
+              }
+
+              if (!target.classList.contains('history-entry')) {
+                return;
+              }
+
+              const historyId = target.getAttribute('data-history-entry');
+              if (!historyId) {
+                return;
+              }
+
+              if (target.open) {
+                expandedHistoryIds.add(historyId);
+              } else {
+                expandedHistoryIds.delete(historyId);
+              }
+
+              persistHistoryState();
+            }, true);
+
             historyList.addEventListener('click', (event) => {
               const target = event.target;
               if (!(target instanceof HTMLElement)) {
                 return;
               }
 
-              const action = target.getAttribute('data-history-action');
-              const historyId = target.getAttribute('data-history-id');
+              const actionButton = target.closest('[data-history-action]');
+              if (!(actionButton instanceof HTMLElement)) {
+                return;
+              }
+
+              const action = actionButton.getAttribute('data-history-action');
+              const historyId = actionButton.getAttribute('data-history-id');
               if (!action || !historyId) {
                 return;
               }
@@ -743,6 +901,9 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
               event.stopPropagation();
             });
           }
+
+          applyHistoryPanelState();
+          persistHistoryState();
           let draggedOverItem = null;
 
           document.addEventListener('dragstart', (e) => {
@@ -1226,7 +1387,7 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
   /**
    * Renders a single history entry row
    */
-  private renderHistoryEntry(entry: BasketHistorySummary): string {
+  private renderHistoryEntry(entry: BasketHistorySummary, index: number): string {
     const tags =
       entry.tags && entry.tags.length > 0
         ? `<div class="history-tags">${entry.tags
@@ -1235,24 +1396,27 @@ export class BasketSidebarProvider implements vscode.WebviewViewProvider {
         : '';
 
     return `
-      <div class="history-entry">
-        <div class="history-entry-header">
+      <details class="history-entry" data-history-entry="${entry.historyId}" ${index === 0 ? 'open' : ''}>
+        <summary class="history-entry-summary">
           <div class="history-entry-name">
-            ${this.escapeHtml(entry.name)}
+            <span class="history-entry-caret">▶</span>
+            <span class="history-entry-title">${this.escapeHtml(entry.name)}</span>
           </div>
           <div class="history-meta">
             <span>${entry.itemCount} items</span>
             <span>${this.formatHistoryTimestamp(entry.updatedAt)}</span>
             ${entry.source ? `<span>${this.escapeHtml(String(entry.source))}</span>` : ''}
           </div>
+        </summary>
+        <div class="history-entry-body">
+          ${tags}
+          <div class="history-entry-actions">
+            <button class="history-btn" data-history-action="open" data-history-id="${entry.historyId}">打开</button>
+            <button class="history-btn" data-history-action="edit" data-history-id="${entry.historyId}">编辑</button>
+            <button class="history-btn danger" data-history-action="delete" data-history-id="${entry.historyId}">删除</button>
+          </div>
         </div>
-        ${tags}
-        <div class="history-entry-actions">
-          <button class="history-btn" data-history-action="open" data-history-id="${entry.historyId}">打开</button>
-          <button class="history-btn" data-history-action="edit" data-history-id="${entry.historyId}">编辑</button>
-          <button class="history-btn danger" data-history-action="delete" data-history-id="${entry.historyId}">删除</button>
-        </div>
-      </div>
+      </details>
     `;
   }
 
