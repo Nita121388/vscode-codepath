@@ -116,6 +116,20 @@ export class FileReferenceResolver {
         const candidates = this.deduplicateUris([...directMatches, ...searchedMatches]);
 
         if (!candidates.length) {
+            const alternativeReferences = this.collectAlternativeParsedReferences(text, reference);
+            for (const alternativeReference of alternativeReferences) {
+                const alternativeDirectMatches = await this.findDirectMatches(alternativeReference.filePath);
+                const alternativeSearchedMatches = await this.findWorkspaceMatches(alternativeReference.filePath);
+                const alternativeCandidates = this.deduplicateUris([...alternativeDirectMatches, ...alternativeSearchedMatches]);
+                if (!alternativeCandidates.length) {
+                    continue;
+                }
+
+                return {
+                    reference: alternativeReference,
+                    candidates: alternativeCandidates
+                };
+            }
             throw new Error(`未找到文件引用：${reference.filePath}#L${reference.lineNumber}`);
         }
 
@@ -123,6 +137,72 @@ export class FileReferenceResolver {
             reference,
             candidates
         };
+    }
+
+    private collectAlternativeParsedReferences(
+        text: string,
+        primaryReference: ParsedTextReference
+    ): ParsedTextReference[] {
+        const normalizedText = this.normalizeInput(text);
+        const primaryKey = this.buildReferenceKey(primaryReference);
+        const bestByKey = new Map<string, ScoredParsedTextReference>();
+
+        for (const rawLine of normalizedText.split('\n')) {
+            const line = rawLine.trim();
+            if (!line) {
+                continue;
+            }
+
+            this.addAlternativeReference(bestByKey, primaryKey, this.parsePythonTraceReference(line));
+
+            for (const candidate of this.expandCandidateSegments(line)) {
+                this.addAlternativeReference(bestByKey, primaryKey, this.parseCandidate(candidate));
+            }
+
+            this.addAlternativeReference(bestByKey, primaryKey, this.parseFallbackInlineReference(line));
+        }
+
+        this.addAlternativeReference(
+            bestByKey,
+            primaryKey,
+            this.parseCrossLineFallbackReference(normalizedText)
+        );
+
+        return Array.from(bestByKey.values())
+            .sort((a, b) => b.score - a.score)
+            .map(reference => {
+                const { score: _score, ...parsed } = reference;
+                return parsed;
+            });
+    }
+
+    private addAlternativeReference(
+        target: Map<string, ScoredParsedTextReference>,
+        primaryKey: string,
+        candidate: ScoredParsedTextReference | null
+    ): void {
+        if (!candidate) {
+            return;
+        }
+
+        const key = this.buildReferenceKey(candidate);
+        if (key === primaryKey) {
+            return;
+        }
+
+        const existing = target.get(key);
+        if (!existing || candidate.score > existing.score) {
+            target.set(key, candidate);
+        }
+    }
+
+    private buildReferenceKey(reference: ParsedTextReference): string {
+        return [
+            this.normalizeForComparison(reference.filePath),
+            reference.lineNumber,
+            reference.columnNumber ?? '',
+            reference.endLineNumber ?? ''
+        ].join(':');
     }
 
     private expandCandidateSegments(line: string): CandidateText[] {

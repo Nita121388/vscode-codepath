@@ -205,13 +205,14 @@ describe('CommandManager', () => {
         it('should register all commands', () => {
             commandManager.registerCommands(mockContext);
 
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(45);
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(46);
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createChildNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createParentNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.createBroNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openTextReference', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openTextReferenceAndSetBreakpoint', expect.any(Function));
+            expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openTextReferenceFromContext', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.switchCurrentNode', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.openPanel', expect.any(Function));
             expect(vscode.commands.registerCommand).toHaveBeenCalledWith('codepath.refreshPreview', expect.any(Function));
@@ -262,6 +263,33 @@ describe('CommandManager', () => {
             expect(vscode.workspace.openTextDocument).toHaveBeenCalledWith(targetUri);
             expect(editor.revealRange).toHaveBeenCalled();
             expect(vscode.debug.addBreakpoints).not.toHaveBeenCalled();
+        });
+
+        it('should prefer clipboard input in context mode instead of editor selection', async () => {
+            const targetUri = { fsPath: 'C:/test/workspace/src/ReagentGridView.cs', scheme: 'file' };
+            const document = { uri: targetUri, lineCount: 120 };
+            const editor = { selection: undefined, revealRange: vi.fn() };
+
+            (vscode.window.activeTextEditor as any) = {
+                selection: { isEmpty: false },
+                document: {
+                    getText: vi.fn().mockReturnValue('WrongFile.cs:12')
+                }
+            };
+            (vscode.env.clipboard.readText as Mock).mockResolvedValue('src/ReagentGridView.cs:48');
+            (vscode.workspace.fs.stat as Mock).mockRejectedValue(new Error('not found'));
+            (vscode.workspace.findFiles as Mock).mockResolvedValue([targetUri]);
+            (vscode.workspace.openTextDocument as Mock).mockResolvedValue(document);
+            (vscode.window.showTextDocument as Mock).mockResolvedValue(editor);
+
+            commandManager.registerCommands(mockContext);
+            const handler = (vscode.commands.registerCommand as Mock).mock.calls
+                .find(call => call[0] === 'codepath.openTextReferenceFromContext')?.[1];
+
+            await handler();
+
+            expect(vscode.workspace.findFiles).toHaveBeenCalledWith('**/ReagentGridView.cs', expect.any(String), 100);
+            expect(vscode.workspace.openTextDocument).toHaveBeenCalledWith(targetUri);
         });
 
         it('should open text reference and add breakpoint', async () => {
@@ -2186,6 +2214,7 @@ describe('CommandManager', () => {
                 'codepath.copyNodeFilePath',
                 'codepath.openTextReference',
                 'codepath.openTextReferenceAndSetBreakpoint',
+                'codepath.openTextReferenceFromContext',
                 'codepath.pasteNode',
                 'codepath.cutNode',
                 'codepath.moveNodeUp',

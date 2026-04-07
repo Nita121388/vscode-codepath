@@ -83,6 +83,7 @@ export class CommandManager {
         this.registerCommand(context, 'codepath.copyNodeFilePath', this.handleCopyNodeFilePath.bind(this));
         this.registerCommand(context, 'codepath.openTextReference', this.handleOpenTextReference.bind(this));
         this.registerCommand(context, 'codepath.openTextReferenceAndSetBreakpoint', this.handleOpenTextReferenceAndSetBreakpoint.bind(this));
+        this.registerCommand(context, 'codepath.openTextReferenceFromContext', this.handleOpenTextReferenceFromContext.bind(this));
         
         // Register node order commands
         this.registerCommand(context, 'codepath.moveNodeUp', this.handleMoveNodeUp.bind(this));
@@ -1240,19 +1241,40 @@ export class CommandManager {
         }
     }
 
-    private async handleOpenTextReference(): Promise<void> {
-        await this.handleOpenTextReferenceInternal({ setBreakpoint: false });
+    private async handleOpenTextReference(...args: unknown[]): Promise<void> {
+        await this.handleOpenTextReferenceInternal({
+            setBreakpoint: false,
+            preferredInput: this.extractCommandTextArgument(args)
+        });
     }
 
-    private async handleOpenTextReferenceAndSetBreakpoint(): Promise<void> {
-        await this.handleOpenTextReferenceInternal({ setBreakpoint: true });
+    private async handleOpenTextReferenceAndSetBreakpoint(...args: unknown[]): Promise<void> {
+        await this.handleOpenTextReferenceInternal({
+            setBreakpoint: true,
+            preferredInput: this.extractCommandTextArgument(args)
+        });
     }
 
-    private async handleOpenTextReferenceInternal(options: { setBreakpoint: boolean }): Promise<void> {
+    private async handleOpenTextReferenceFromContext(...args: unknown[]): Promise<void> {
+        await this.handleOpenTextReferenceInternal({
+            setBreakpoint: false,
+            preferredInput: this.extractCommandTextArgument(args),
+            skipEditorSelection: true
+        });
+    }
+
+    private async handleOpenTextReferenceInternal(options: {
+        setBreakpoint: boolean;
+        preferredInput?: string;
+        skipEditorSelection?: boolean;
+    }): Promise<void> {
         const operation = options.setBreakpoint ? '根据文本引用定位并添加断点' : '根据文本引用定位';
 
         try {
-            const rawInput = await this.resolveTextReferenceInput();
+            const rawInput = await this.resolveTextReferenceInput({
+                preferredInput: options.preferredInput,
+                skipEditorSelection: options.skipEditorSelection
+            });
             if (!rawInput) {
                 this.showWarning('未提供可解析的文件引用');
                 return;
@@ -1285,8 +1307,16 @@ export class CommandManager {
         }
     }
 
-    private async resolveTextReferenceInput(): Promise<string | null> {
-        const selectedText = this.getSelectedEditorText();
+    private async resolveTextReferenceInput(options: {
+        preferredInput?: string;
+        skipEditorSelection?: boolean;
+    } = {}): Promise<string | null> {
+        const preferredText = (options.preferredInput || '').trim();
+        if (preferredText && this.fileReferenceResolver.parseReference(preferredText)) {
+            return preferredText;
+        }
+
+        const selectedText = options.skipEditorSelection ? '' : this.getSelectedEditorText();
         if (selectedText && this.fileReferenceResolver.parseReference(selectedText)) {
             return selectedText;
         }
@@ -1299,10 +1329,37 @@ export class CommandManager {
         const input = await vscode.window.showInputBox({
             prompt: '输入文件引用，例如 ReagentGridView.cs#L794',
             placeHolder: '支持 file.cs#L123、src/file.cs:123、path/to/file.cs#L123-L130',
-            value: selectedText || clipboardText
+            value: preferredText || selectedText || clipboardText
         });
 
         return input?.trim() || null;
+    }
+
+    private extractCommandTextArgument(args: unknown[]): string {
+        for (const arg of args) {
+            if (typeof arg === 'string') {
+                const text = arg.trim();
+                if (text) {
+                    return text;
+                }
+                continue;
+            }
+
+            if (!arg || typeof arg !== 'object') {
+                continue;
+            }
+
+            const record = arg as Record<string, unknown>;
+            const candidateKeys = ['selectionText', 'selectedText', 'text', 'value', 'label'];
+            for (const key of candidateKeys) {
+                const value = record[key];
+                if (typeof value === 'string' && value.trim()) {
+                    return value.trim();
+                }
+            }
+        }
+
+        return '';
     }
 
     private getSelectedEditorText(): string {

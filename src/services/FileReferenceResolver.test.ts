@@ -185,4 +185,31 @@ describe('FileReferenceResolver', () => {
         expect(resolved.candidates).toHaveLength(1);
         expect(resolved.candidates[0].fsPath).toBe('C:/repo/src/views/ReagentGridView.cs');
     });
+
+    it('falls back to another resolvable reference when the top parsed reference is missing', async () => {
+        const makeUri = (fsPath: string) => ({ fsPath, scheme: 'file' } as vscode.Uri);
+        const resolver = new FileReferenceResolver({
+            workspaceFoldersProvider: () => [{ uri: makeUri('C:/repo') } as vscode.WorkspaceFolder],
+            uriFactory: makeUri,
+            stat: async (uri: vscode.Uri) => {
+                if (uri.fsPath === 'C:/repo/src/services/FileReferenceResolver.js') {
+                    return { type: vscode.FileType.File } as vscode.FileStat;
+                }
+
+                throw new Error('not found');
+            },
+            findFiles: async () => [makeUri('C:/repo/src/services/FileReferenceResolver.js')]
+        });
+
+        const resolved = await resolver.resolveReference(
+            '未找到文件引用：TestResult.cs#L213\n' +
+            'at FileReferenceResolver.resolveReference (src/services/FileReferenceResolver.js:86:19)'
+        );
+
+        expect(resolved.reference.filePath).toBe('src/services/FileReferenceResolver.js');
+        expect(resolved.reference.lineNumber).toBe(86);
+        expect(resolved.reference.columnNumber).toBe(19);
+        expect(resolved.candidates).toHaveLength(1);
+        expect(resolved.candidates[0].fsPath).toBe('C:/repo/src/services/FileReferenceResolver.js');
+    });
 });

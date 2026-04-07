@@ -116,6 +116,11 @@
         "category": "Code Path Marker"
       },
       {
+        "command": "codepath.openTextReferenceFromContext",
+        "title": "🔎 Context Jump To Reference",
+        "category": "Code Path Marker"
+      },
+      {
         "command": "codepath.showSelectionPopup",
         "title": "🪧 行内容弹窗编辑",
         "category": "Code Path Marker"
@@ -293,6 +298,13 @@
       "explorer/context": [
         {
           "submenu": "codepath.submenu",
+          "when": "true",
+          "group": "navigation@1"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "codepath.openTextReferenceFromContext",
           "when": "true",
           "group": "navigation@1"
         }
