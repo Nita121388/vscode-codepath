@@ -38,8 +38,22 @@ const FILE_PATH_PATTERN = "((?:[A-Za-z]:)?(?:[\\\\/])?(?:\\.{1,2}[\\\\/])?(?:[^\
 const HASH_LINE_REFERENCE_PATTERN = new RegExp(String.raw`^${FILE_PATH_PATTERN}#L(\d+)(?:C(\d+))?(?:-L?(\d+))?$`);
 const COLON_LINE_REFERENCE_PATTERN = new RegExp(String.raw`^${FILE_PATH_PATTERN}:(\d+)(?::(\d+)|-(\d+))?$`);
 const PAREN_LINE_REFERENCE_PATTERN = new RegExp(String.raw`^${FILE_PATH_PATTERN}\((\d+)(?:,(\d+))?\)$`);
+const PAREN_LINE_KEYWORD_REFERENCE_PATTERN = new RegExp(
+    String.raw`^${FILE_PATH_PATTERN}\s*\(\s*line\s*[:#]?\s*(\d+)(?:\s*,\s*(?:(?:column|col)\s*[:#]?\s*)?(\d+))?\s*\)$`,
+    'i'
+);
 const PYTHON_TRACE_PATTERN = /File\s+["']([^"']+)["'],\s+line\s+(\d+)/;
 const GITHUB_BLOB_PATTERN = /^https?:\/\/github\.com\/[^/\s]+\/[^/\s]+\/blob\/([^#\s]+)#L(\d+)(?:C(\d+))?(?:-L?(\d+))?$/i;
+const LINE_NUMBER_PATTERNS = [
+    /\b(?:line|ln)\s*[:#=]?\s*(\d{1,7})\b/i,
+    /行号\s*[:#=]?\s*(\d{1,7})/i,
+    /第\s*(\d{1,7})\s*行/i,
+    /行\s*[:#=]?\s*(\d{1,7})/i
+];
+const COLUMN_NUMBER_PATTERNS = [
+    /\b(?:column|col)\s*[:#=]?\s*(\d{1,7})\b/i,
+    /列\s*[:#=]?\s*(\d{1,7})/i
+];
 const SEARCH_EXCLUDE_GLOB = '**/{node_modules,.git,dist,out,bin,obj,target}/**';
 const WRAPPING_PREFIX = "`'\"([{<";
 const WRAPPING_SUFFIX = "`'\"`)]}>,;.!?";
@@ -77,7 +91,11 @@ export class FileReferenceResolver {
             for (const candidate of this.expandCandidateSegments(line)) {
                 bestMatch = this.pickBetterReference(bestMatch, this.parseCandidate(candidate));
             }
+
+            bestMatch = this.pickBetterReference(bestMatch, this.parseFallbackInlineReference(line));
         }
+
+        bestMatch = this.pickBetterReference(bestMatch, this.parseCrossLineFallbackReference(normalizedText));
 
         if (!bestMatch) {
             return null;
@@ -160,6 +178,7 @@ export class FileReferenceResolver {
             this.parseGitHubBlobReference.bind(this),
             this.parseHashReference.bind(this),
             this.parseColonReference.bind(this),
+            this.parseParenLineKeywordReference.bind(this),
             this.parseParenReference.bind(this)
         ];
 
@@ -224,6 +243,23 @@ export class FileReferenceResolver {
         });
     }
 
+    private parseParenLineKeywordReference(candidateText: string, scoreBoost: number): ScoredParsedTextReference | null {
+        const sanitizedCandidate = candidateText.trim().replace(/^['"`]+/, '').replace(/[;,.!?]+$/, '');
+        const match = sanitizedCandidate.match(PAREN_LINE_KEYWORD_REFERENCE_PATTERN);
+        if (!match) {
+            return null;
+        }
+
+        const [, filePath, lineNumberText, columnNumberText] = match;
+        return this.createReference({
+            rawText: sanitizedCandidate,
+            filePath,
+            lineNumber: parseInt(lineNumberText, 10),
+            columnNumber: columnNumberText ? parseInt(columnNumberText, 10) : undefined,
+            score: 71 + scoreBoost
+        });
+    }
+
     private parsePythonTraceReference(line: string): ScoredParsedTextReference | null {
         const match = line.match(PYTHON_TRACE_PATTERN);
         if (!match) {
@@ -236,6 +272,52 @@ export class FileReferenceResolver {
             filePath,
             lineNumber: parseInt(lineNumberText, 10),
             score: 90
+        });
+    }
+
+    private parseFallbackInlineReference(line: string): ScoredParsedTextReference | null {
+        const sanitizedLine = line.trim();
+        if (!sanitizedLine) {
+            return null;
+        }
+
+        const filePath = this.extractBestFilePath(sanitizedLine);
+        const lineNumber = this.extractNumberByPatterns(sanitizedLine, LINE_NUMBER_PATTERNS);
+        if (!filePath || !lineNumber) {
+            return null;
+        }
+
+        const columnNumber = this.extractNumberByPatterns(sanitizedLine, COLUMN_NUMBER_PATTERNS);
+        return this.createReference({
+            rawText: sanitizedLine,
+            filePath,
+            lineNumber,
+            columnNumber,
+            endLineNumber: undefined,
+            score: 52
+        });
+    }
+
+    private parseCrossLineFallbackReference(text: string): ScoredParsedTextReference | null {
+        if (!text.includes('\n')) {
+            return null;
+        }
+
+        const filePath = this.extractBestFilePath(text);
+        const lineNumber = this.extractNumberByPatterns(text, LINE_NUMBER_PATTERNS);
+        if (!filePath || !lineNumber) {
+            return null;
+        }
+
+        const columnNumber = this.extractNumberByPatterns(text, COLUMN_NUMBER_PATTERNS);
+        const rawText = columnNumber ? `${filePath} line ${lineNumber}, col ${columnNumber}` : `${filePath} line ${lineNumber}`;
+        return this.createReference({
+            rawText,
+            filePath,
+            lineNumber,
+            columnNumber,
+            endLineNumber: undefined,
+            score: 46
         });
     }
 
@@ -425,5 +507,53 @@ export class FileReferenceResolver {
         }
 
         return sanitized.trim();
+    }
+
+    private extractBestFilePath(text: string): string | null {
+        const filePathRegex = new RegExp(FILE_PATH_PATTERN, 'g');
+        let bestPath: string | null = null;
+        let bestScore = Number.NEGATIVE_INFINITY;
+
+        for (const match of text.matchAll(filePathRegex)) {
+            const rawPath = match[1] ?? match[0];
+            let candidatePath = this.stripWrappingPunctuation(rawPath);
+            if (/^[^\\/\s]+[=:]\s*.+/.test(candidatePath) && !/^[A-Za-z]:[\\/]/.test(candidatePath)) {
+                candidatePath = candidatePath.replace(/^[^\\/\s]+[=:]\s*/, '');
+            }
+            if (!candidatePath) {
+                continue;
+            }
+
+            let score = candidatePath.length;
+            if (/[\\/]/.test(candidatePath)) {
+                score += 10;
+            }
+            if (path.isAbsolute(candidatePath)) {
+                score += 5;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestPath = candidatePath;
+            }
+        }
+
+        return bestPath;
+    }
+
+    private extractNumberByPatterns(text: string, patterns: RegExp[]): number | undefined {
+        for (const pattern of patterns) {
+            const match = text.match(pattern);
+            if (!match) {
+                continue;
+            }
+
+            const parsed = parseInt(match[1], 10);
+            if (Number.isInteger(parsed) && parsed > 0) {
+                return parsed;
+            }
+        }
+
+        return undefined;
     }
 }

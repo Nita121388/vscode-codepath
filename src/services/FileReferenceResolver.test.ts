@@ -56,6 +56,56 @@ describe('FileReferenceResolver', () => {
         });
     });
 
+    it('parses line keyword references in parentheses', () => {
+        const resolver = new FileReferenceResolver();
+
+        expect(resolver.parseReference('TestResult.cs (line 213)')).toEqual({
+            rawText: 'TestResult.cs (line 213)',
+            filePath: 'TestResult.cs',
+            lineNumber: 213,
+            columnNumber: undefined,
+            endLineNumber: undefined
+        });
+    });
+
+    it('parses line keyword references with column in parentheses', () => {
+        const resolver = new FileReferenceResolver();
+
+        expect(resolver.parseReference('TestResult.cs (Line 213, col 9)')).toEqual({
+            rawText: 'TestResult.cs (Line 213, col 9)',
+            filePath: 'TestResult.cs',
+            lineNumber: 213,
+            columnNumber: 9,
+            endLineNumber: undefined
+        });
+    });
+
+    it('parses fallback references from file plus line data in one sentence', () => {
+        const resolver = new FileReferenceResolver();
+
+        expect(resolver.parseReference('定位结果: 文件=TestResult.cs, line=213, col=9')).toEqual({
+            rawText: '定位结果: 文件=TestResult.cs, line=213, col=9',
+            filePath: 'TestResult.cs',
+            lineNumber: 213,
+            columnNumber: 9,
+            endLineNumber: undefined
+        });
+    });
+
+    it('parses fallback references when file and line data are split across lines', () => {
+        const resolver = new FileReferenceResolver();
+
+        expect(
+            resolver.parseReference('分析结果:\n结果文件: TestResult.cs\n数据: 行号 213')
+        ).toEqual({
+            rawText: 'TestResult.cs line 213',
+            filePath: 'TestResult.cs',
+            lineNumber: 213,
+            columnNumber: undefined,
+            endLineNumber: undefined
+        });
+    });
+
     it('parses stack trace references inside parentheses', () => {
         const resolver = new FileReferenceResolver();
 
